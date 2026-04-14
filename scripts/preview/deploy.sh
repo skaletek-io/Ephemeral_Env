@@ -1,0 +1,57 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [[ $# -lt 1 ]]; then
+  echo "Usage: $0 <branch-name> [vps-ip]"
+  exit 1
+fi
+
+BRANCH_NAME="$1"
+VPS_IP="${2:-}"
+
+safe_name() {
+  echo "$1" \
+    | tr '[:upper:]' '[:lower:]' \
+    | sed -E 's/[^a-z0-9]+/-/g' \
+    | sed -E 's/^-+|-+$//g' \
+    | cut -c1-40
+}
+
+hash_port() {
+  local input="$1"
+  local base="$2"
+  local span="$3"
+  local hash dec
+  hash="$(printf "%s" "$input" | sha256sum | cut -c1-8)"
+  dec="$((16#$hash))"
+  echo "$((base + (dec % span)))"
+}
+
+ENV_NAME="$(safe_name "$BRANCH_NAME")"
+if [[ -z "$ENV_NAME" ]]; then
+  echo "Could not compute env name from branch '$BRANCH_NAME'"
+  exit 1
+fi
+
+PROJECT_NAME="simpleapp-${ENV_NAME}"
+FRONTEND_PORT="$(hash_port "${ENV_NAME}-fe" 20000 10000)"
+BACKEND_PORT="$(hash_port "${ENV_NAME}-be" 30000 10000)"
+DB_PORT="$(hash_port "${ENV_NAME}-db" 40000 10000)"
+
+export COMPOSE_PROJECT_NAME="$PROJECT_NAME"
+export FRONTEND_PORT
+export BACKEND_PORT
+export DB_PORT
+export ENV_NAME
+
+docker compose up -d --build
+
+echo "env_name=$ENV_NAME"
+echo "project_name=$PROJECT_NAME"
+echo "frontend_port=$FRONTEND_PORT"
+echo "backend_port=$BACKEND_PORT"
+echo "db_port=$DB_PORT"
+if [[ -n "$VPS_IP" ]]; then
+  echo "frontend_url=http://${VPS_IP}:${FRONTEND_PORT}"
+  echo "backend_url=http://${VPS_IP}:${BACKEND_PORT}/api/health"
+fi
