@@ -21,6 +21,8 @@ export default function Home() {
   const [form, setForm]         = useState({ name: '', email: '' });
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast]       = useState('');
+  const dbHealthy = health?.status === 'ok' || health?.status === 'healthy';
+  const commitSha = (process.env.NEXT_PUBLIC_COMMIT_SHA || 'local').slice(0, 7);
 
   function showToast(msg) {
     setToast(msg);
@@ -84,12 +86,9 @@ export default function Home() {
       {/* Header */}
       <header style={styles.header}>
         <div style={styles.headerInner}>
-          <div>
-            <h1 style={styles.title}>🚀 Simple App</h1>
-            <div style={styles.branchMarker}>Isolation test marker: feature-3</div>
-          </div>
-          <div style={styles.healthBadge(health?.status === 'ok')}>
-            {health ? (health.status === 'ok' ? '● DB connected' : '● DB error') : '○ checking...'}
+          <h1 style={styles.title}>🚀 Simple App</h1>
+          <div style={styles.healthBadge(dbHealthy)}>
+            {health ? (dbHealthy ? '● DB connected' : '● DB error') : '○ checking...'}
           </div>
         </div>
       </header>
@@ -107,8 +106,9 @@ export default function Home() {
         {/* Stats row */}
         <div style={styles.statsRow}>
           <StatCard label="Total Users" value={users.length} color="#6366f1" />
-          <StatCard label="DB Status"   value={health?.status || '...'} color={health?.status === 'ok' ? '#10b981' : '#ef4444'} />
-          <StatCard label="Environment" value={process.env.NODE_ENV || 'production'} color="#f59e0b" />
+          <StatCard label="DB Status"   value={health?.status || '...'} color={dbHealthy ? '#10b981' : '#ef4444'} />
+          <StatCard label="Environment" value={process.env.NEXT_PUBLIC_ENV_NAME || process.env.NODE_ENV || 'local'} color="#f59e0b" />
+          <StatCard label="Commit"      value={commitSha} color="#22d3ee" />
         </div>
 
         <div style={styles.grid}>
@@ -226,7 +226,7 @@ const styles = {
   main: { maxWidth: 1100, margin: '0 auto', padding: '32px 24px' },
   errorBanner: { background: '#450a0a', border: '1px solid #991b1b', color: '#fca5a5', padding: '12px 16px', borderRadius: 8, marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 },
   errorClose: { background: 'none', border: 'none', color: '#fca5a5', cursor: 'pointer', fontSize: 16 },
-  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 16, marginBottom: 24 },
+  statsRow: { display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 16, marginBottom: 24 },
   statCard: color => ({ background: '#1e293b', border: `1px solid ${color}30`, borderRadius: 12, padding: '20px 24px' }),
   statValue: color => ({ fontSize: 28, fontWeight: 700, color, marginBottom: 4 }),
   statLabel: { fontSize: 13, color: '#94a3b8' },
