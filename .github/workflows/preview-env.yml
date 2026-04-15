@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
       COMMIT_SHA: ${{ github.sha }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
@@ -35,7 +36,7 @@ jobs:
       - name: Compute environment metadata
         id: meta
         run: |
-          ENV_NAME="$(./scripts/preview/env_name.sh "$BRANCH_NAME")"
+          ENV_NAME="$(./scripts/preview/env_name.sh "$BRANCH_NAME" "$PR_NUMBER")"
           echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH key
@@ -55,7 +56,7 @@ jobs:
       - name: Deploy preview stack
         id: deploy
         run: |
-          DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${{ steps.meta.outputs.env_name }} && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST' '$COMMIT_SHA'")"
+          DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${{ steps.meta.outputs.env_name }} && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST' '$COMMIT_SHA' '$PR_NUMBER'")"
           echo "$DEPLOY_OUT"
 
           FRONTEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^frontend_url=/{print $2}')"
@@ -67,6 +68,36 @@ jobs:
           echo "backend_url=$BACKEND_URL" >> "$GITHUB_OUTPUT"
           echo "db_port=$DB_PORT" >> "$GITHUB_OUTPUT"
           echo "commit_sha=$DEPLOY_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Smoke test preview
+        run: |
+          FRONTEND_URL="${{ steps.deploy.outputs.frontend_url }}"
+          BACKEND_URL="${{ steps.deploy.outputs.backend_url }}"
+
+          for attempt in $(seq 1 12); do
+            frontend_ok=0
+            backend_ok=0
+
+            if curl -fsS "$FRONTEND_URL" > /dev/null; then
+              frontend_ok=1
+            fi
+
+            health_body="$(curl -fsS "$BACKEND_URL" || true)"
+            if printf '%s' "$health_body" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"(ok|healthy)"'; then
+              backend_ok=1
+            fi
+
+            if [[ "$frontend_ok" -eq 1 && "$backend_ok" -eq 1 ]]; then
+              echo "Smoke test passed on attempt $attempt."
+              exit 0
+            fi
+
+            echo "Attempt $attempt failed; retrying in 5s..."
+            sleep 5
+          done
+
+          echo "Smoke test failed: preview not healthy."
+          exit 1
 
       - name: Comment preview links
         uses: actions/github-script@v7
@@ -92,6 +123,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
@@ -108,7 +140,7 @@ jobs:
       - name: Compute environment metadata
         id: meta
         run: |
-          ENV_NAME="$(./scripts/preview/env_name.sh "$BRANCH_NAME")"
+          ENV_NAME="$(./scripts/preview/env_name.sh "$BRANCH_NAME" "$PR_NUMBER")"
           echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH key
@@ -122,7 +154,7 @@ jobs:
             PREVIEW_DIR=\"\$HOME/simple-app/previews/${{ steps.meta.outputs.env_name }}\"
             if [ -d \"\$PREVIEW_DIR\" ]; then
               cd \"\$PREVIEW_DIR\"
-              ./scripts/preview/destroy.sh '$BRANCH_NAME'
+              ./scripts/preview/destroy.sh '$BRANCH_NAME' '$PR_NUMBER'
               cd /
               rm -rf \"\$PREVIEW_DIR\"
             else

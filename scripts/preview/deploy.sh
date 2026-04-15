@@ -2,13 +2,14 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <branch-name> [vps-ip] [commit-sha]"
+  echo "Usage: $0 <branch-name> [vps-ip] [commit-sha] [pr-number]"
   exit 1
 fi
 
 BRANCH_NAME="$1"
 VPS_IP="${2:-}"
 COMMIT_SHA="${3:-local}"
+PR_NUMBER="${4:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 hash_port() {
@@ -21,7 +22,7 @@ hash_port() {
   echo "$((base + (dec % span)))"
 }
 
-ENV_NAME="$("$SCRIPT_DIR/env_name.sh" "$BRANCH_NAME")"
+ENV_NAME="$("$SCRIPT_DIR/env_name.sh" "$BRANCH_NAME" "$PR_NUMBER")"
 
 PROJECT_NAME="simpleapp-${ENV_NAME}"
 FRONTEND_PORT="$(hash_port "${ENV_NAME}-fe" 20000 10000)"
