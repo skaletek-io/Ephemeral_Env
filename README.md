@@ -150,5 +150,3 @@ Postgres is exposed on port 5432:
 psql -h YOUR_VPS_IP -U app -d appdb
 # password: secret
 ```
-
-Or use TablePlus / DBeaver with the same credentials.
