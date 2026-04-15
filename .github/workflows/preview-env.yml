@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+      COMMIT_SHA: ${{ github.sha }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
@@ -89,16 +90,18 @@ jobs:
       - name: Deploy preview stack
         id: deploy
         run: |
-          DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${{ steps.meta.outputs.env_name }} && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST'")"
+          DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${{ steps.meta.outputs.env_name }} && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST' '$COMMIT_SHA'")"
           echo "$DEPLOY_OUT"
 
           FRONTEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^frontend_url=/{print $2}')"
           BACKEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^backend_url=/{print $2}')"
           DB_PORT="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^db_port=/{print $2}')"
+          DEPLOY_SHA="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^commit_sha=/{print $2}')"
 
           echo "frontend_url=$FRONTEND_URL" >> "$GITHUB_OUTPUT"
           echo "backend_url=$BACKEND_URL" >> "$GITHUB_OUTPUT"
           echo "db_port=$DB_PORT" >> "$GITHUB_OUTPUT"
+          echo "commit_sha=$DEPLOY_SHA" >> "$GITHUB_OUTPUT"
 
       - name: Comment preview links
         uses: actions/github-script@v7
@@ -110,6 +113,7 @@ jobs:
               `- Frontend: ${{ steps.deploy.outputs.frontend_url }}`,
               `- Backend health: ${{ steps.deploy.outputs.backend_url }}`,
               `- Postgres: ${{ secrets.VPS_HOST }}:${{ steps.deploy.outputs.db_port }}`,
+              `- Commit: \`${{ steps.deploy.outputs.commit_sha }}\``,
             ].join('\n');
 
             await github.rest.issues.createComment({

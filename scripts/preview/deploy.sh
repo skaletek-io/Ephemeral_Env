@@ -2,12 +2,13 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <branch-name> [vps-ip]"
+  echo "Usage: $0 <branch-name> [vps-ip] [commit-sha]"
   exit 1
 fi
 
 BRANCH_NAME="$1"
 VPS_IP="${2:-}"
+COMMIT_SHA="${3:-local}"
 
 safe_name() {
   echo "$1" \
@@ -44,6 +45,7 @@ export BACKEND_PORT
 export DB_PORT
 export ENV_NAME
 export PREVIEW_BRANCH_NAME="$BRANCH_NAME"
+export PREVIEW_COMMIT_SHA="$COMMIT_SHA"
 
 docker compose up -d --build
 
@@ -52,6 +54,7 @@ echo "project_name=$PROJECT_NAME"
 echo "frontend_port=$FRONTEND_PORT"
 echo "backend_port=$BACKEND_PORT"
 echo "db_port=$DB_PORT"
+echo "commit_sha=$COMMIT_SHA"
 if [[ -n "$VPS_IP" ]]; then
   echo "frontend_url=http://${VPS_IP}:${FRONTEND_PORT}"
   echo "backend_url=http://${VPS_IP}:${BACKEND_PORT}/api/health"
