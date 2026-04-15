@@ -84,7 +84,10 @@ export default function Home() {
       {/* Header */}
       <header style={styles.header}>
         <div style={styles.headerInner}>
-          <h1 style={styles.title}>🚀 Simple App</h1>
+          <div>
+            <h1 style={styles.title}>🚀 Simple App</h1>
+            <div style={styles.branchMarker}>Isolation test marker: feature-3</div>
+          </div>
           <div style={styles.healthBadge(health?.status === 'ok')}>
             {health ? (health.status === 'ok' ? '● DB connected' : '● DB error') : '○ checking...'}
           </div>
@@ -218,6 +221,7 @@ const styles = {
   header: { background: '#1e293b', borderBottom: '1px solid #334155', padding: '0 24px' },
   headerInner: { maxWidth: 1100, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 60 },
   title: { margin: 0, fontSize: 20, fontWeight: 700, color: '#f1f5f9' },
+  branchMarker: { marginTop: 4, fontSize: 12, color: '#93c5fd' },
   healthBadge: ok => ({ fontSize: 13, padding: '4px 12px', borderRadius: 20, background: ok ? '#064e3b' : '#450a0a', color: ok ? '#6ee7b7' : '#fca5a5' }),
   main: { maxWidth: 1100, margin: '0 auto', padding: '32px 24px' },
   errorBanner: { background: '#450a0a', border: '1px solid #991b1b', color: '#fca5a5', padding: '12px 16px', borderRadius: 8, marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 14 },
