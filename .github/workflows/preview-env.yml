@@ -55,8 +55,11 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          printf '%s' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+          SSH_KEY="${SSH_PRIVATE_KEY//$'\r'/}"
+          SSH_KEY="${SSH_KEY//\\n/$'\n'}"
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          grep -q "BEGIN .*PRIVATE KEY" ~/.ssh/id_rsa
           ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
@@ -157,8 +160,11 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          printf '%s' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
+          SSH_KEY="${SSH_PRIVATE_KEY//$'\r'/}"
+          SSH_KEY="${SSH_KEY//\\n/$'\n'}"
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          grep -q "BEGIN .*PRIVATE KEY" ~/.ssh/id_rsa
           ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
           chmod 644 ~/.ssh/known_hosts
