@@ -80,7 +80,7 @@ jobs:
         run: |
           ssh preview-vps "mkdir -p ~/simple-app/previews/${{ steps.meta.outputs.env_name }}"
           rsync -az --delete \
-            -e "ssh -F ~/.ssh/config" \
+            -e "ssh -F $HOME/.ssh/config" \
             --exclude '.git' \
             --exclude '.github' \
             --exclude 'frontend/node_modules' \
