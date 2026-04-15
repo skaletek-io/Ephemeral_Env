@@ -64,7 +64,7 @@ func healthHandler(db *sql.DB) http.HandlerFunc {
 			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "db unavailable"})
 			return
 		}
-		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		writeJSON(w, http.StatusOK, map[string]string{"status": "healthy"})
 	}
 }
 

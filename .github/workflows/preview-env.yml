@@ -48,30 +48,48 @@ jobs:
             exit 1
           fi
 
-          REMOTE_DIR="/opt/simple-app/previews/${ENV_NAME}"
           echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
-          echo "remote_dir=$REMOTE_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          SSH_KEY="${SSH_PRIVATE_KEY//$'\r'/}"
+          SSH_KEY="${SSH_KEY//\\n/$'\n'}"
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          grep -q "BEGIN .*PRIVATE KEY" ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host preview-vps
+            HostName $VPS_HOST
+            User $VPS_USER
+            IdentityFile ~/.ssh/id_rsa
+            IdentitiesOnly yes
+            BatchMode yes
+            PreferredAuthentications publickey
+            PasswordAuthentication no
+            ConnectTimeout 10
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
+          ssh preview-vps "echo SSH auth ok"
 
       - name: Sync repo to VPS
         run: |
-          ssh "$VPS_USER@$VPS_HOST" "mkdir -p '${{ steps.meta.outputs.remote_dir }}'"
+          ssh preview-vps "mkdir -p ~/simple-app/previews/${{ steps.meta.outputs.env_name }}"
           rsync -az --delete \
+            -e "ssh -F $HOME/.ssh/config" \
             --exclude '.git' \
             --exclude '.github' \
             --exclude 'frontend/node_modules' \
-            ./ "$VPS_USER@$VPS_HOST:${{ steps.meta.outputs.remote_dir }}/"
+            ./ "preview-vps:~/simple-app/previews/${{ steps.meta.outputs.env_name }}/"
 
       - name: Deploy preview stack
         id: deploy
         run: |
-          DEPLOY_OUT="$(ssh "$VPS_USER@$VPS_HOST" "cd '${{ steps.meta.outputs.remote_dir }}' && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST'")"
+          DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${{ steps.meta.outputs.env_name }} && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST'")"
           echo "$DEPLOY_OUT"
 
           FRONTEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^frontend_url=/{print $2}')"
@@ -136,26 +154,44 @@ jobs:
             exit 1
           fi
 
-          REMOTE_DIR="/opt/simple-app/previews/${ENV_NAME}"
           echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
-          echo "remote_dir=$REMOTE_DIR" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          SSH_KEY="${SSH_PRIVATE_KEY//$'\r'/}"
+          SSH_KEY="${SSH_KEY//\\n/$'\n'}"
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          grep -q "BEGIN .*PRIVATE KEY" ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host preview-vps
+            HostName $VPS_HOST
+            User $VPS_USER
+            IdentityFile ~/.ssh/id_rsa
+            IdentitiesOnly yes
+            BatchMode yes
+            PreferredAuthentications publickey
+            PasswordAuthentication no
+            ConnectTimeout 10
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
+          ssh preview-vps "echo SSH auth ok"
 
       - name: Destroy preview stack
         run: |
-          ssh "$VPS_USER@$VPS_HOST" "
+          ssh preview-vps "
             set -e
-            if [ -d '${{ steps.meta.outputs.remote_dir }}' ]; then
-              cd '${{ steps.meta.outputs.remote_dir }}'
+            PREVIEW_DIR=\"\$HOME/simple-app/previews/${{ steps.meta.outputs.env_name }}\"
+            if [ -d \"\$PREVIEW_DIR\" ]; then
+              cd \"\$PREVIEW_DIR\"
               ./scripts/preview/destroy.sh '$BRANCH_NAME'
               cd /
-              rm -rf '${{ steps.meta.outputs.remote_dir }}'
+              rm -rf \"\$PREVIEW_DIR\"
             else
               echo 'No preview directory found; nothing to destroy.'
             fi
