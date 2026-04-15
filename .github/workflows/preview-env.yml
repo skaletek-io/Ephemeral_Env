@@ -118,6 +118,29 @@ jobs:
 
             await upsertPrComment({ github, context, marker, body });
 
+      - name: Comment preview failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
+            const marker = '<!-- preview-env-status -->';
+            const frontendUrl = `${{ steps.deploy.outputs.frontend_url }}`.trim() || 'not available';
+            const backendUrl = `${{ steps.deploy.outputs.backend_url }}`.trim() || 'not available';
+            const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const body = [
+              marker,
+              `Preview deployment failed for branch \`${{ steps.meta.outputs.env_name }}\`.`,
+              '',
+              `- Run: #${{ github.run_number }}`,
+              `- Logs: ${runUrl}`,
+              `- Frontend (if created): ${frontendUrl}`,
+              `- Backend (if created): ${backendUrl}`,
+              `- Commit: \`${{ github.sha }}\``,
+            ].join('\n');
+
+            await upsertPrComment({ github, context, marker, body });
+
   destroy-preview:
     if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
