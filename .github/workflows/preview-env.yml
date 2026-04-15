@@ -55,23 +55,37 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          printf '%s' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host preview-vps
+            HostName $VPS_HOST
+            User $VPS_USER
+            IdentityFile ~/.ssh/id_rsa
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
+          ssh preview-vps "echo SSH auth ok"
 
       - name: Sync repo to VPS
         run: |
-          ssh "$VPS_USER@$VPS_HOST" "mkdir -p '${{ steps.meta.outputs.remote_dir }}'"
+          ssh preview-vps "mkdir -p '${{ steps.meta.outputs.remote_dir }}'"
           rsync -az --delete \
+            -e "ssh -F ~/.ssh/config" \
             --exclude '.git' \
             --exclude '.github' \
             --exclude 'frontend/node_modules' \
-            ./ "$VPS_USER@$VPS_HOST:${{ steps.meta.outputs.remote_dir }}/"
+            ./ "preview-vps:${{ steps.meta.outputs.remote_dir }}/"
 
       - name: Deploy preview stack
         id: deploy
         run: |
-          DEPLOY_OUT="$(ssh "$VPS_USER@$VPS_HOST" "cd '${{ steps.meta.outputs.remote_dir }}' && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST'")"
+          DEPLOY_OUT="$(ssh preview-vps "cd '${{ steps.meta.outputs.remote_dir }}' && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST'")"
           echo "$DEPLOY_OUT"
 
           FRONTEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^frontend_url=/{print $2}')"
@@ -143,13 +157,26 @@ jobs:
       - name: Setup SSH key
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
+          printf '%s' "$SSH_PRIVATE_KEY" | tr -d '\r' > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null
           ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          cat > ~/.ssh/config <<EOF
+          Host preview-vps
+            HostName $VPS_HOST
+            User $VPS_USER
+            IdentityFile ~/.ssh/id_rsa
+            IdentitiesOnly yes
+            BatchMode yes
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
+          ssh preview-vps "echo SSH auth ok"
 
       - name: Destroy preview stack
         run: |
-          ssh "$VPS_USER@$VPS_HOST" "
+          ssh preview-vps "
             set -e
             if [ -d '${{ steps.meta.outputs.remote_dir }}' ]; then
               cd '${{ steps.meta.outputs.remote_dir }}'
