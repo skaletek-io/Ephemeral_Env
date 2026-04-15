@@ -6,6 +6,7 @@ services:
       context: ./frontend
       args:
         - NEXT_PUBLIC_API_URL=/api
+        - NEXT_PUBLIC_ENV_NAME=${PREVIEW_BRANCH_NAME:-local}
     restart: unless-stopped
     ports:
       - "${FRONTEND_PORT:-3000}:3000"

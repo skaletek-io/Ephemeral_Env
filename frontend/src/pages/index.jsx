@@ -21,6 +21,7 @@ export default function Home() {
   const [form, setForm]         = useState({ name: '', email: '' });
   const [submitting, setSubmitting] = useState(false);
   const [toast, setToast]       = useState('');
+  const dbHealthy = health?.status === 'ok' || health?.status === 'healthy';
 
   function showToast(msg) {
     setToast(msg);
@@ -85,8 +86,8 @@ export default function Home() {
       <header style={styles.header}>
         <div style={styles.headerInner}>
           <h1 style={styles.title}>🚀 Simple App</h1>
-          <div style={styles.healthBadge(health?.status === 'ok')}>
-            {health ? (health.status === 'ok' ? '● DB connected' : '● DB error') : '○ checking...'}
+          <div style={styles.healthBadge(dbHealthy)}>
+            {health ? (dbHealthy ? '● DB connected' : '● DB error') : '○ checking...'}
           </div>
         </div>
       </header>
@@ -104,8 +105,8 @@ export default function Home() {
         {/* Stats row */}
         <div style={styles.statsRow}>
           <StatCard label="Total Users" value={users.length} color="#6366f1" />
-          <StatCard label="DB Status"   value={health?.status || '...'} color={health?.status === 'ok' ? '#10b981' : '#ef4444'} />
-          <StatCard label="Environment" value={process.env.NODE_ENV || 'production'} color="#f59e0b" />
+          <StatCard label="DB Status"   value={health?.status || '...'} color={dbHealthy ? '#10b981' : '#ef4444'} />
+          <StatCard label="Environment" value={process.env.NEXT_PUBLIC_ENV_NAME || process.env.NODE_ENV || 'local'} color="#f59e0b" />
         </div>
 
         <div style={styles.grid}>

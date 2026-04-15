@@ -1,5 +1,7 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
+ARG NEXT_PUBLIC_ENV_NAME=local
+ENV NEXT_PUBLIC_ENV_NAME=$NEXT_PUBLIC_ENV_NAME
 COPY package.json ./
 RUN npm install
 COPY . .

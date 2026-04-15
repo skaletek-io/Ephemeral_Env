@@ -43,6 +43,7 @@ export FRONTEND_PORT
 export BACKEND_PORT
 export DB_PORT
 export ENV_NAME
+export PREVIEW_BRANCH_NAME="$BRANCH_NAME"
 
 docker compose up -d --build
 
