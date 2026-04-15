@@ -18,6 +18,7 @@ jobs:
     runs-on: ubuntu-latest
     env:
       BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
       COMMIT_SHA: ${{ github.sha }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
@@ -35,47 +36,12 @@ jobs:
       - name: Compute environment metadata
         id: meta
         run: |
-          safe_name() {
-            echo "$1" \
-              | tr '[:upper:]' '[:lower:]' \
-              | sed -E 's/[^a-z0-9]+/-/g' \
-              | sed -E 's/^-+|-+$//g' \
-              | cut -c1-40
-          }
-
-          ENV_NAME="$(safe_name "$BRANCH_NAME")"
-          if [ -z "$ENV_NAME" ]; then
-            echo "Could not compute env name from branch: $BRANCH_NAME"
-            exit 1
-          fi
-
+          ENV_NAME="$(./scripts/preview/env_name.sh "$BRANCH_NAME" "$PR_NUMBER")"
           echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH key
         run: |
-          mkdir -p ~/.ssh
-          SSH_KEY="${SSH_PRIVATE_KEY//$'\r'/}"
-          SSH_KEY="${SSH_KEY//\\n/$'\n'}"
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          grep -q "BEGIN .*PRIVATE KEY" ~/.ssh/id_rsa
-          ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null
-          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-          cat > ~/.ssh/config <<EOF
-          Host preview-vps
-            HostName $VPS_HOST
-            User $VPS_USER
-            IdentityFile ~/.ssh/id_rsa
-            IdentitiesOnly yes
-            BatchMode yes
-            PreferredAuthentications publickey
-            PasswordAuthentication no
-            ConnectTimeout 10
-            StrictHostKeyChecking yes
-          EOF
-          chmod 600 ~/.ssh/config
-          ssh preview-vps "echo SSH auth ok"
+          ./scripts/preview/setup_ssh.sh "$VPS_HOST" "$VPS_USER" "$SSH_PRIVATE_KEY"
 
       - name: Sync repo to VPS
         run: |
@@ -90,7 +56,7 @@ jobs:
       - name: Deploy preview stack
         id: deploy
         run: |
-          DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${{ steps.meta.outputs.env_name }} && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST' '$COMMIT_SHA'")"
+          DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${{ steps.meta.outputs.env_name }} && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST' '$COMMIT_SHA' '$PR_NUMBER'")"
           echo "$DEPLOY_OUT"
 
           FRONTEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^frontend_url=/{print $2}')"
@@ -103,53 +69,61 @@ jobs:
           echo "db_port=$DB_PORT" >> "$GITHUB_OUTPUT"
           echo "commit_sha=$DEPLOY_SHA" >> "$GITHUB_OUTPUT"
 
+      - name: Smoke test preview
+        run: |
+          FRONTEND_URL="${{ steps.deploy.outputs.frontend_url }}"
+          BACKEND_URL="${{ steps.deploy.outputs.backend_url }}"
+
+          for attempt in $(seq 1 12); do
+            frontend_ok=0
+            backend_ok=0
+
+            if curl -fsS "$FRONTEND_URL" > /dev/null; then
+              frontend_ok=1
+            fi
+
+            health_body="$(curl -fsS "$BACKEND_URL" || true)"
+            if printf '%s' "$health_body" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"(ok|healthy)"'; then
+              backend_ok=1
+            fi
+
+            if [[ "$frontend_ok" -eq 1 && "$backend_ok" -eq 1 ]]; then
+              echo "Smoke test passed on attempt $attempt."
+              exit 0
+            fi
+
+            echo "Attempt $attempt failed; retrying in 5s..."
+            sleep 5
+          done
+
+          echo "Smoke test failed: preview not healthy."
+          exit 1
+
       - name: Comment preview links
         uses: actions/github-script@v7
         with:
           script: |
+            const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
             const marker = '<!-- preview-env-status -->';
             const body = [
               marker,
               `Preview environment updated for branch \`${{ steps.meta.outputs.env_name }}\`.`,
               '',
+              `- Run: #${{ github.run_number }}`,
               `- Frontend: ${{ steps.deploy.outputs.frontend_url }}`,
               `- Backend health: ${{ steps.deploy.outputs.backend_url }}`,
               `- Postgres: ${{ secrets.VPS_HOST }}:${{ steps.deploy.outputs.db_port }}`,
               `- Commit: \`${{ steps.deploy.outputs.commit_sha }}\``,
             ].join('\n');
 
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              per_page: 100,
-            });
-
-            const existing = comments
-              .filter(c => c.user?.type === 'Bot')
-              .find(c => (c.body || '').includes(marker));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+            await upsertPrComment({ github, context, marker, body });
 
   destroy-preview:
     if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
       BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
@@ -166,47 +140,12 @@ jobs:
       - name: Compute environment metadata
         id: meta
         run: |
-          safe_name() {
-            echo "$1" \
-              | tr '[:upper:]' '[:lower:]' \
-              | sed -E 's/[^a-z0-9]+/-/g' \
-              | sed -E 's/^-+|-+$//g' \
-              | cut -c1-40
-          }
-
-          ENV_NAME="$(safe_name "$BRANCH_NAME")"
-          if [ -z "$ENV_NAME" ]; then
-            echo "Could not compute env name from branch: $BRANCH_NAME"
-            exit 1
-          fi
-
+          ENV_NAME="$(./scripts/preview/env_name.sh "$BRANCH_NAME" "$PR_NUMBER")"
           echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH key
         run: |
-          mkdir -p ~/.ssh
-          SSH_KEY="${SSH_PRIVATE_KEY//$'\r'/}"
-          SSH_KEY="${SSH_KEY//\\n/$'\n'}"
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          grep -q "BEGIN .*PRIVATE KEY" ~/.ssh/id_rsa
-          ssh-keygen -y -f ~/.ssh/id_rsa > /dev/null
-          ssh-keyscan -H "$VPS_HOST" >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-          cat > ~/.ssh/config <<EOF
-          Host preview-vps
-            HostName $VPS_HOST
-            User $VPS_USER
-            IdentityFile ~/.ssh/id_rsa
-            IdentitiesOnly yes
-            BatchMode yes
-            PreferredAuthentications publickey
-            PasswordAuthentication no
-            ConnectTimeout 10
-            StrictHostKeyChecking yes
-          EOF
-          chmod 600 ~/.ssh/config
-          ssh preview-vps "echo SSH auth ok"
+          ./scripts/preview/setup_ssh.sh "$VPS_HOST" "$VPS_USER" "$SSH_PRIVATE_KEY"
 
       - name: Destroy preview stack
         run: |
@@ -215,7 +154,7 @@ jobs:
             PREVIEW_DIR=\"\$HOME/simple-app/previews/${{ steps.meta.outputs.env_name }}\"
             if [ -d \"\$PREVIEW_DIR\" ]; then
               cd \"\$PREVIEW_DIR\"
-              ./scripts/preview/destroy.sh '$BRANCH_NAME'
+              ./scripts/preview/destroy.sh '$BRANCH_NAME' '$PR_NUMBER'
               cd /
               rm -rf \"\$PREVIEW_DIR\"
             else
@@ -227,35 +166,11 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
             const marker = '<!-- preview-env-status -->';
             const body = [
               marker,
-              `Preview environment \`${{ steps.meta.outputs.env_name }}\` was removed after merge.`,
+              `Preview environment \`${{ steps.meta.outputs.env_name }}\` was removed after PR close.`,
             ].join('\n');
 
-            const { data: comments } = await github.rest.issues.listComments({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              per_page: 100,
-            });
-
-            const existing = comments
-              .filter(c => c.user?.type === 'Bot')
-              .find(c => (c.body || '').includes(marker));
-
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+            await upsertPrComment({ github, context, marker, body });
