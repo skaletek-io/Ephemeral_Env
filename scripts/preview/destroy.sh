@@ -26,7 +26,7 @@ PROJECT_NAME="simpleapp-${ENV_NAME}"
 
 export COMPOSE_PROJECT_NAME="$PROJECT_NAME"
 
-docker compose down -v --remove-orphans || true
+docker compose down -v --remove-orphans --rmi local|| true
 
 echo "destroyed_env=$ENV_NAME"
 echo "project_name=$PROJECT_NAME"
