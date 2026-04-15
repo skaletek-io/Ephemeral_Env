@@ -146,7 +146,7 @@ jobs:
             }
 
   destroy-preview:
-    if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     env:
       BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
