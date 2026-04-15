@@ -78,6 +78,7 @@ jobs:
               marker,
               `Preview environment updated for branch \`${{ steps.meta.outputs.env_name }}\`.`,
               '',
+              `- Run: #${{ github.run_number }}`,
               `- Frontend: ${{ steps.deploy.outputs.frontend_url }}`,
               `- Backend health: ${{ steps.deploy.outputs.backend_url }}`,
               `- Postgres: ${{ secrets.VPS_HOST }}:${{ steps.deploy.outputs.db_port }}`,
