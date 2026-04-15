@@ -107,7 +107,9 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
+            const marker = '<!-- preview-env-status -->';
             const body = [
+              marker,
               `Preview environment updated for branch \`${{ steps.meta.outputs.env_name }}\`.`,
               '',
               `- Frontend: ${{ steps.deploy.outputs.frontend_url }}`,
@@ -116,12 +118,32 @@ jobs:
               `- Commit: \`${{ steps.deploy.outputs.commit_sha }}\``,
             ].join('\n');
 
-            await github.rest.issues.createComment({
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body,
+              per_page: 100,
             });
+
+            const existing = comments
+              .filter(c => c.user?.type === 'Bot')
+              .find(c => (c.body || '').includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
 
   destroy-preview:
     if: github.event.action == 'closed' && github.event.pull_request.merged == true && github.event.pull_request.head.repo.full_name == github.repository
@@ -205,10 +227,35 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const body = `Preview environment \`${{ steps.meta.outputs.env_name }}\` was removed after merge.`;
-            await github.rest.issues.createComment({
+            const marker = '<!-- preview-env-status -->';
+            const body = [
+              marker,
+              `Preview environment \`${{ steps.meta.outputs.env_name }}\` was removed after merge.`,
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
-              body,
+              per_page: 100,
             });
+
+            const existing = comments
+              .filter(c => c.user?.type === 'Bot')
+              .find(c => (c.body || '').includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
