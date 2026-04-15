@@ -124,6 +124,15 @@ Ports are computed deterministically from the branch name to allow multiple prev
 
 The workflow posts URLs directly in the PR comments after each deploy.
 
+### Stale preview cleanup
+
+A scheduled workflow also cleans old preview environments:
+
+- Workflow: `.github/workflows/preview-cleanup.yml`
+- Default schedule: daily (02:17 UTC)
+- Default retention: previews older than 7 days are removed
+- Manual run: use `workflow_dispatch` and set `retention_days`
+
 ---
 
 ## Customise DB credentials

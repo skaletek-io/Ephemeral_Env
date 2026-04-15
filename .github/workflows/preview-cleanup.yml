@@ -1,0 +1,63 @@
+name: Preview Cleanup
+
+on:
+  schedule:
+    - cron: '17 2 * * *'
+  workflow_dispatch:
+    inputs:
+      retention_days:
+        description: Delete preview environments older than this many days
+        required: false
+        default: '7'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: preview-cleanup
+  cancel-in-progress: false
+
+jobs:
+  cleanup-stale-previews:
+    runs-on: ubuntu-latest
+    env:
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          test -n "$VPS_HOST"
+          test -n "$VPS_USER"
+          test -n "$SSH_PRIVATE_KEY"
+
+      - name: Resolve retention days
+        id: config
+        run: |
+          RETENTION_DAYS="${{ github.event.inputs.retention_days }}"
+          if [ -z "$RETENTION_DAYS" ]; then
+            RETENTION_DAYS="7"
+          fi
+
+          if ! echo "$RETENTION_DAYS" | grep -Eq '^[0-9]+$'; then
+            echo "retention_days must be a positive integer"
+            exit 1
+          fi
+
+          if [ "$RETENTION_DAYS" -lt 1 ]; then
+            echo "retention_days must be >= 1"
+            exit 1
+          fi
+
+          echo "retention_days=$RETENTION_DAYS" >> "$GITHUB_OUTPUT"
+
+      - name: Setup SSH key
+        run: |
+          ./scripts/preview/setup_ssh.sh "$VPS_HOST" "$VPS_USER" "$SSH_PRIVATE_KEY"
+
+      - name: Cleanup stale previews on VPS
+        run: |
+          ssh preview-vps "bash -s -- '${{ steps.config.outputs.retention_days }}'" < ./scripts/preview/cleanup_stale.sh
