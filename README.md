@@ -77,12 +77,42 @@ Set these in `Settings -> Secrets and variables -> Actions`:
 - `VPS_USER`: SSH user on VPS
 - `VPS_SSH_KEY`: Private key for that user
 
+Important: `VPS_SSH_KEY` alone is not enough. You must also add the matching public key to the VPS user's `authorized_keys`.
+
+### Required SSH Authorization on VPS
+
+GitHub Actions can SSH into your VPS only if the public key matching `VPS_SSH_KEY` is present in:
+
+- `/home/<VPS_USER>/.ssh/authorized_keys` (or `/root/.ssh/authorized_keys` if using `root`)
+
+Example setup:
+
+```bash
+# On your local machine (or wherever you generate deploy keys)
+ssh-keygen -t ed25519 -C "github-actions-preview" -f ./github_actions_preview_key
+
+# Add private key content to GitHub secret VPS_SSH_KEY
+cat ./github_actions_preview_key
+
+# Add public key content to the VPS user authorized_keys
+cat ./github_actions_preview_key.pub
+```
+
+On the VPS (as root or with sudo), ensure permissions are correct:
+
+```bash
+sudo -u <VPS_USER> mkdir -p /home/<VPS_USER>/.ssh
+sudo -u <VPS_USER> chmod 700 /home/<VPS_USER>/.ssh
+sudo -u <VPS_USER> sh -c 'echo "<PASTE_PUBLIC_KEY_HERE>" >> /home/<VPS_USER>/.ssh/authorized_keys'
+sudo -u <VPS_USER> chmod 600 /home/<VPS_USER>/.ssh/authorized_keys
+```
+
 ### VPS Requirements
 
 - Docker and Docker Compose plugin installed.
 - `rsync` installed.
 - SSH user can run Docker commands.
-- Writable path: `/opt/simple-app/previews`.
+- Writable path: `~/simple-app/previews`.
 
 ### How preview ports work
 
