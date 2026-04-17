@@ -20,14 +20,59 @@ jobs:
       BRANCH_NAME: ${{ github.event.pull_request.head.ref }}
       PR_NUMBER: ${{ github.event.pull_request.number }}
       COMMIT_SHA: ${{ github.sha }}
+      BACKEND_MAIN_IMAGE: ${{ vars.PREVIEW_BACKEND_MAIN_IMAGE }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine preview mode
+        id: scope
+        run: |
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          HEAD_SHA="${{ github.sha }}"
+          CHANGED_FILES="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA" || true)"
+
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+
+          frontend_changed=0
+          backend_changed=0
+          infra_changed=0
+
+          while IFS= read -r file; do
+            [[ -z "$file" ]] && continue
+            case "$file" in
+              frontend/*)
+                frontend_changed=1
+                ;;
+              backend/*|db/*)
+                backend_changed=1
+                ;;
+              docker-compose.yml|scripts/preview/*)
+                infra_changed=1
+                ;;
+            esac
+          done <<< "$CHANGED_FILES"
+
+          mode="none"
+          if [[ "$frontend_changed" -eq 1 || "$infra_changed" -eq 1 ]]; then
+            mode="frontend"
+          elif [[ "$backend_changed" -eq 1 ]]; then
+            mode="backend"
+          fi
+
+          echo "mode=$mode" >> "$GITHUB_OUTPUT"
+          echo "frontend_changed=$frontend_changed" >> "$GITHUB_OUTPUT"
+          echo "backend_changed=$backend_changed" >> "$GITHUB_OUTPUT"
+          echo "infra_changed=$infra_changed" >> "$GITHUB_OUTPUT"
 
       - name: Validate required secrets
+        if: steps.scope.outputs.mode != 'none'
         run: |
           test -n "$VPS_HOST"
           test -n "$VPS_USER"
@@ -35,15 +80,18 @@ jobs:
 
       - name: Compute environment metadata
         id: meta
+        if: steps.scope.outputs.mode != 'none'
         run: |
           ENV_NAME="$(./scripts/preview/env_name.sh "$BRANCH_NAME" "$PR_NUMBER")"
           echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH key
+        if: steps.scope.outputs.mode != 'none'
         run: |
           ./scripts/preview/setup_ssh.sh "$VPS_HOST" "$VPS_USER" "$SSH_PRIVATE_KEY"
 
       - name: Sync repo to VPS
+        if: steps.scope.outputs.mode != 'none'
         run: |
           ssh preview-vps "mkdir -p ~/simple-app/previews/${{ steps.meta.outputs.env_name }}"
           rsync -az --delete \
@@ -55,22 +103,34 @@ jobs:
 
       - name: Deploy preview stack
         id: deploy
+        if: steps.scope.outputs.mode != 'none'
         run: |
-          DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${{ steps.meta.outputs.env_name }} && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST' '$COMMIT_SHA' '$PR_NUMBER'")"
+          SELECTED_BACKEND_IMAGE=""
+          if [[ "${{ steps.scope.outputs.mode }}" == "frontend" && -n "$BACKEND_MAIN_IMAGE" ]]; then
+            SELECTED_BACKEND_IMAGE="$BACKEND_MAIN_IMAGE"
+          fi
+
+          DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${{ steps.meta.outputs.env_name }} && ./scripts/preview/deploy.sh '$BRANCH_NAME' '$VPS_HOST' '$COMMIT_SHA' '$PR_NUMBER' '${{ steps.scope.outputs.mode }}' '$SELECTED_BACKEND_IMAGE'")"
           echo "$DEPLOY_OUT"
 
           FRONTEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^frontend_url=/{print $2}')"
           BACKEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^backend_url=/{print $2}')"
           DB_PORT="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^db_port=/{print $2}')"
           DEPLOY_SHA="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^commit_sha=/{print $2}')"
+          DEPLOY_MODE="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^deployment_mode=/{print $2}')"
+          BACKEND_IMAGE_SOURCE="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^backend_image_source=/{print $2}')"
 
           echo "frontend_url=$FRONTEND_URL" >> "$GITHUB_OUTPUT"
           echo "backend_url=$BACKEND_URL" >> "$GITHUB_OUTPUT"
           echo "db_port=$DB_PORT" >> "$GITHUB_OUTPUT"
           echo "commit_sha=$DEPLOY_SHA" >> "$GITHUB_OUTPUT"
+          echo "deployment_mode=$DEPLOY_MODE" >> "$GITHUB_OUTPUT"
+          echo "backend_image_source=$BACKEND_IMAGE_SOURCE" >> "$GITHUB_OUTPUT"
 
       - name: Smoke test preview
+        if: steps.scope.outputs.mode != 'none'
         run: |
+          MODE="${{ steps.deploy.outputs.deployment_mode }}"
           FRONTEND_URL="${{ steps.deploy.outputs.frontend_url }}"
           BACKEND_URL="${{ steps.deploy.outputs.backend_url }}"
 
@@ -78,7 +138,11 @@ jobs:
             frontend_ok=0
             backend_ok=0
 
-            if curl -fsS "$FRONTEND_URL" > /dev/null; then
+            if [[ "$MODE" == "frontend" ]]; then
+              if curl -fsS "$FRONTEND_URL" > /dev/null; then
+                frontend_ok=1
+              fi
+            else
               frontend_ok=1
             fi
 
@@ -100,6 +164,35 @@ jobs:
           exit 1
 
       - name: Comment preview links
+        if: steps.scope.outputs.mode != 'none'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
+            const marker = '<!-- preview-env-status -->';
+            const mode = `${{ steps.deploy.outputs.deployment_mode }}`.trim() || `${{ steps.scope.outputs.mode }}`;
+            const backendSource = `${{ steps.deploy.outputs.backend_image_source }}`.trim() || 'local-build';
+            const lines = [
+              marker,
+              `Preview environment updated for branch \`${{ steps.meta.outputs.env_name }}\`.`,
+              '',
+              `- Mode: \`${mode}\``,
+              `- Run: #${{ github.run_number }}`,
+              `- Backend health: ${{ steps.deploy.outputs.backend_url }}`,
+              `- Postgres: ${{ secrets.VPS_HOST }}:${{ steps.deploy.outputs.db_port }}`,
+              `- Backend source: \`${backendSource}\``,
+              `- Commit: \`${{ steps.deploy.outputs.commit_sha }}\``,
+            ];
+
+            if (mode === 'frontend') {
+              lines.splice(4, 0, `- Frontend: ${{ steps.deploy.outputs.frontend_url }}`);
+            }
+
+            const body = lines.join('\n');
+            await upsertPrComment({ github, context, marker, body });
+
+      - name: Comment preview skipped
+        if: steps.scope.outputs.mode == 'none'
         uses: actions/github-script@v7
         with:
           script: |
@@ -107,19 +200,15 @@ jobs:
             const marker = '<!-- preview-env-status -->';
             const body = [
               marker,
-              `Preview environment updated for branch \`${{ steps.meta.outputs.env_name }}\`.`,
+              'Preview deployment skipped: no frontend/backend/db/preview-infra changes detected in this PR.',
               '',
               `- Run: #${{ github.run_number }}`,
-              `- Frontend: ${{ steps.deploy.outputs.frontend_url }}`,
-              `- Backend health: ${{ steps.deploy.outputs.backend_url }}`,
-              `- Postgres: ${{ secrets.VPS_HOST }}:${{ steps.deploy.outputs.db_port }}`,
-              `- Commit: \`${{ steps.deploy.outputs.commit_sha }}\``,
             ].join('\n');
 
             await upsertPrComment({ github, context, marker, body });
 
       - name: Comment preview failure
-        if: failure()
+        if: failure() && steps.scope.outputs.mode != 'none'
         uses: actions/github-script@v7
         with:
           script: |
@@ -127,18 +216,24 @@ jobs:
             const marker = '<!-- preview-env-status -->';
             const frontendUrl = `${{ steps.deploy.outputs.frontend_url }}`.trim() || 'not available';
             const backendUrl = `${{ steps.deploy.outputs.backend_url }}`.trim() || 'not available';
+            const mode = `${{ steps.deploy.outputs.deployment_mode }}`.trim() || `${{ steps.scope.outputs.mode }}`;
             const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
-            const body = [
+            const lines = [
               marker,
               `Preview deployment failed for branch \`${{ steps.meta.outputs.env_name }}\`.`,
               '',
+              `- Mode: \`${mode}\``,
               `- Run: #${{ github.run_number }}`,
               `- Logs: ${runUrl}`,
-              `- Frontend (if created): ${frontendUrl}`,
               `- Backend (if created): ${backendUrl}`,
               `- Commit: \`${{ github.sha }}\``,
-            ].join('\n');
+            ];
 
+            if (mode === 'frontend') {
+              lines.splice(6, 0, `- Frontend (if created): ${frontendUrl}`);
+            }
+
+            const body = lines.join('\n');
             await upsertPrComment({ github, context, marker, body });
 
   destroy-preview:
