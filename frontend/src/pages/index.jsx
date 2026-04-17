@@ -108,7 +108,7 @@ export default function Home() {
           <StatCard label="Total Users" value={users.length} color="#6366f1" />
           <StatCard label="DB Status"   value={health?.status || '...'} color={dbHealthy ? '#10b981' : '#ef4444'} />
           <StatCard label="Environment" value={process.env.NEXT_PUBLIC_ENV_NAME || process.env.NODE_ENV || 'local'} color="#f59e0b" />
-          <StatCard label="Commit"      value={commitSha} color="#22d3ee" />
+          {/* <StatCard label="Commit"      value={commitSha} color="#22d3ee" /> */}
         </div>
 
         <div style={styles.grid}>
