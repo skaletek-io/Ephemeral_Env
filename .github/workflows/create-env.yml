@@ -127,32 +127,49 @@ jobs:
           echo "Smoke test failed: preview not healthy."
           exit 1
 
-      - name:  preview links
-        # uses: actions/github-script@v7
-        run: |
-          echo "Name ${{ steps.meta.outputs.env_name }}"
-          echo "Frontend: ${{ steps.deploy.outputs.frontend_url }}"
-          echo "Backend health: ${{ steps.deploy.outputs.backend_url }}"
-          echo "Postgres: ${{ secrets.VPS_HOST }}:${{ steps.deploy.outputs.db_port }}"
+      - name: Create preview issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const envName     = '${{ steps.meta.outputs.env_name }}';
+            const frontendUrl = '${{ steps.deploy.outputs.frontend_url }}';
+            const backendUrl  = '${{ steps.deploy.outputs.backend_url }}';
+            const dbPort      = '${{ steps.deploy.outputs.db_port }}';
+            const vpsHost     = '${{ secrets.VPS_HOST }}';
+            const sha         = context.sha.slice(0, 7);
+            const branch      = '${{ github.head_ref || github.ref_name }}';
+            const actor       = '${{ github.actor }}';
+            const runUrl      = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
 
-      # - name: Comment preview failure
-      #   if: failure()
-      #   uses: actions/github-script@v7
-      #   with:
-      #     script: |
-      #       const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
-      #       const marker = '<!-- preview-env-status -->';
-      #       const frontendUrl = `${{ steps.deploy.outputs.frontend_url }}`.trim() || 'not available';
-      #       const backendUrl = `${{ steps.deploy.outputs.backend_url }}`.trim() || 'not available';
-      #       const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
-      #       const body = [
-      #         marker,
-      #         `Preview deployment failed for branch \`${{ steps.meta.outputs.env_name }}\`.`,
-      #         '',
-      #         `- Logs: ${runUrl}`,
-      #         `- Frontend (if created): ${frontendUrl}`,
-      #         `- Backend (if created): ${backendUrl}`,
-      #       ].join('\n');
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `Preview / ${envName}`,
+              labels: ['preview'],
+              body: `## Preview Environment
 
-      #       await upsertPrComment({ github, context, marker, body });
+            **Environment:** \`${envName}\`
+            **Branch:** \`${branch}\`
+            **Commit:** \`${sha}\`
+            **Deployed by:** @${actor}
+
+            ---
+
+            ## Services
+
+            | Service    | Address                        |
+            |------------|--------------------------------|
+            | Frontend   | ${frontendUrl}                 |
+            | Backend    | ${backendUrl}                  |
+            | Postgres   | \`${vpsHost}:${dbPort}\`       |
+
+            ---
+
+            ## Details
+
+            [View workflow run](${runUrl})
+
+            > This issue was created automatically on deployment. Close it when the preview environment is torn down.
+            `,
+            });
 
