@@ -42,11 +42,13 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          filter: '.gitignore, README.md, LICENSE,'
+
       - name: Checkout tools repo
         uses: actions/checkout@v6
         with:
           repository: skaletek-io/simple-app-backend
-          path: backend
 
       - name: Current backend repo files      
         run: |
