@@ -195,15 +195,13 @@ jobs:
             `;
 
             if (existingIssue) {
-              const body = existingIssue.body || '';
-              const backMatch  = body.match(/\*\*Backend Branch:\*\*\s*`([^`]+)`/);
-              const frontMatch = body.match(/\*\*Frontend Branch:\*\*\s*`([^`]+)`/);
-              
-              if (backMatch)  backendBranch  = `\`${backMatch[1]}\``;
-              if (frontMatch) frontendBranch = `\`${frontMatch[1]}\``;
-
-              console.log(`Preserved backend branch: ${backendBranch}`);
-              console.log(`Preserved frontend branch: ${frontendBranch}`);
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body,
+              });
+              console.log(`Updated issue #${existingIssue.number} for ${envName}`);
             } else {
               await github.rest.issues.create({
                 owner: context.repo.owner,
