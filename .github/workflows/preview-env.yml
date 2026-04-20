@@ -43,17 +43,18 @@ jobs:
       - name: Checkout current repo
         uses: actions/checkout@v4
 
+      - name: Current repo files      
+        run: |
+          ls -la
+
       - name: checkout backend repo
         uses: actions/checkout@v4
         with:
           repository: skaletek-io/simple-app-backend
 
-      - name: verify code are pulled        
+      - name: Current backend repo files      
         run: |
-          echo "Current repo files:"
           ls -la
-          echo "Backend repo files:"
-          ls -la ../simple-app-backend
 
 
       # - name: Validate required secrets
