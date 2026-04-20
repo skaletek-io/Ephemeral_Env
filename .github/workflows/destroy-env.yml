@@ -8,6 +8,8 @@ on:
         required: true
         default: ''
         type: string
+permissions:
+  issues: write
 
 jobs:
   destroy-preview:

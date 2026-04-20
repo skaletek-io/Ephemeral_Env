@@ -23,7 +23,7 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write
+  issues: write
 
 concurrency:
   group: preview-env-${{ github.event.ref || github.sha }}
