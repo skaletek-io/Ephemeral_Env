@@ -40,19 +40,13 @@ jobs:
     #   VPS_USER: ${{ secrets.VPS_USER }}
     #   SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
     steps:
-      - name: Checkout current repo
-        uses: actions/checkout@v4
-
-      - name: Current repo files      
-        run: |
-          ls -la
-
-      - name: checkout backend repo
-        uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: Checkout tools repo
+        uses: actions/checkout@v6
         with:
           repository: skaletek-io/simple-app-backend
-          clean: false
-
+          path: backend
 
       - name: Current backend repo files      
         run: |
