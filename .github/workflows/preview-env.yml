@@ -63,6 +63,7 @@ jobs:
           ls
 
           echo "==================== Frontend repo files ==================="
+          cd ..
           cd frontend
           ls 
 
