@@ -68,6 +68,19 @@ jobs:
           path: frontend
           ref: ${{ github.event.inputs.front-end-ref }}
 
+      - name: Verify file structure     
+        run: |
+          ls -la
+
+          echo "==================== Backend repo files ===================="
+          cd backend
+          ls
+
+          echo "==================== Frontend repo files ==================="
+          cd ..
+          cd frontend
+          ls 
+
       # - name: Validate required secrets
       #   run: |
       #     test -n "$VPS_HOST"
