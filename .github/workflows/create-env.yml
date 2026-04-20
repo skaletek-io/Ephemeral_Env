@@ -102,6 +102,8 @@ jobs:
           FRONTEND_URL="${{ steps.deploy.outputs.frontend_url }}"
           BACKEND_URL="${{ steps.deploy.outputs.backend_url }}"
 
+          sleep 3
+          
           for attempt in $(seq 1 12); do
             frontend_ok=0
             backend_ok=0

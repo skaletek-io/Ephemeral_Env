@@ -67,22 +67,31 @@ jobs:
           echo "project_name=$PROJECT_NAME" >> "$GITHUB_OUTPUT"
           echo "preview_dir_removed=$PREVIEW_DIR_REMOVED" >> "$GITHUB_OUTPUT"
 
-      # - name: Comment cleanup status
-      #   uses: actions/github-script@v7
-      #   with:
-      #     script: |
-      #       const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
-      #       const marker = '<!-- preview-env-status -->';
-      #       const removed = `${{ steps.destroy.outputs.preview_dir_removed }}`.trim() || 'unknown';
-      #       const envName = `${{ steps.destroy.outputs.destroyed_env }}`.trim() || `${{ steps.meta.outputs.env_name }}`;
-      #       const projectName = `${{ steps.destroy.outputs.project_name }}`.trim() || `simpleapp-${envName}`;
-      #       const body = [
-      #         marker,
-      #         `Preview cleanup completed after PR close.`,
-      #         '',
-      #         `- Environment: \`${envName}\``,
-      #         `- Project: \`${projectName}\``,
-      #         `- Preview directory removed: \`${removed}\``,
-      #       ].join('\n');
+      - name: Close preview issue
+        uses: actions/github-script@v7
+        with:
+         script: |
+            const envName = '${{ steps.meta.outputs.env_name }}';
 
-      #       await upsertPrComment({ github, context, marker, body });
+            const issues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: 'preview',
+                state: 'open',
+            });
+
+            const issue = issues.data.find(i => i.title === `Preview / ${envName}`);
+
+            if (!issue) {
+                console.log(`No open preview issue found for ${envName}`);
+                return;
+            }
+
+            await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+            });
+
+            console.log(`Closed issue #${issue.number} for ${envName}`);
