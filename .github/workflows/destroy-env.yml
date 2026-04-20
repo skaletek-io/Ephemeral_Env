@@ -1,0 +1,86 @@
+name: DESTROY PREVIEW ENV
+
+on:
+  workflow_dispatch:
+    inputs:
+      env-name:
+        description: 'Provide custom environment name (alphanumeric and dashes only)'
+        required: true
+        default: ''
+        type: string
+
+jobs:
+  destroy-preview:
+    runs-on: ubuntu-latest
+    env:
+      ENV_NAME: ${{ github.event.inputs.env-name }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        run: |
+          test -n "$VPS_HOST"
+          test -n "$VPS_USER"
+          test -n "$SSH_PRIVATE_KEY"
+
+      - name: Compute environment metadata
+        id: meta
+        run: |
+          ENV_NAME="$(./scripts/preview/env_name.sh "$ENV_NAME")"
+          echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Setup SSH key
+        run: |
+          ./scripts/preview/setup_ssh.sh "$VPS_HOST" "$VPS_USER" "$SSH_PRIVATE_KEY"
+
+      - name: Destroy preview stack
+        id: destroy
+        run: |
+          DESTROY_OUT="$(ssh preview-vps "
+            set -e
+            PREVIEW_DIR=\"\$HOME/simple-app/previews/${{ steps.meta.outputs.env_name }}\"
+            if [ -d \"\$PREVIEW_DIR\" ]; then
+              echo \"[preview-destroy] Found preview directory: \$PREVIEW_DIR\"
+              cd \"\$PREVIEW_DIR\"
+              ./scripts/preview/destroy.sh '$ENV_NAME'
+              cd /
+              sudo rm -rf \"\$PREVIEW_DIR\"
+              echo 'preview_dir_removed=true'
+            else
+              echo '[preview-destroy] No preview directory found; nothing to destroy.'
+              echo 'preview_dir_removed=false'
+            fi
+          ")"
+          echo "$DESTROY_OUT"
+
+          DESTROYED_ENV="$(printf '%s\n' "$DESTROY_OUT" | awk -F= '/^destroyed_env=/{print $2}' | tail -n1)"
+          PROJECT_NAME="$(printf '%s\n' "$DESTROY_OUT" | awk -F= '/^project_name=/{print $2}' | tail -n1)"
+          PREVIEW_DIR_REMOVED="$(printf '%s\n' "$DESTROY_OUT" | awk -F= '/^preview_dir_removed=/{print $2}' | tail -n1)"
+
+          echo "destroyed_env=$DESTROYED_ENV" >> "$GITHUB_OUTPUT"
+          echo "project_name=$PROJECT_NAME" >> "$GITHUB_OUTPUT"
+          echo "preview_dir_removed=$PREVIEW_DIR_REMOVED" >> "$GITHUB_OUTPUT"
+
+      # - name: Comment cleanup status
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
+      #       const marker = '<!-- preview-env-status -->';
+      #       const removed = `${{ steps.destroy.outputs.preview_dir_removed }}`.trim() || 'unknown';
+      #       const envName = `${{ steps.destroy.outputs.destroyed_env }}`.trim() || `${{ steps.meta.outputs.env_name }}`;
+      #       const projectName = `${{ steps.destroy.outputs.project_name }}`.trim() || `simpleapp-${envName}`;
+      #       const body = [
+      #         marker,
+      #         `Preview cleanup completed after PR close.`,
+      #         '',
+      #         `- Environment: \`${envName}\``,
+      #         `- Project: \`${projectName}\``,
+      #         `- Preview directory removed: \`${removed}\``,
+      #       ].join('\n');
+
+      #       await upsertPrComment({ github, context, marker, body });
