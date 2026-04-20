@@ -43,17 +43,28 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
-      - name: Checkout tools repo
+      - name: Checkout backend repo
         uses: actions/checkout@v6
         with:
           repository: skaletek-io/simple-app-backend
           path: backend
 
-      - name: Current backend repo files      
+      - name: Checkout frontend repo
+        uses: actions/checkout@v6
+        with:
+          repository: skaletek-io/simple-app-frontend
+          path: frontend
+      - name: Verify file structure     
         run: |
           ls -la
+
+          echo "==================== Backend repo files ===================="
           cd backend
-          ls -la
+          ls
+
+          echo "==================== Frontend repo files ==================="
+          cd frontend
+          ls 
 
 
       # - name: Validate required secrets
