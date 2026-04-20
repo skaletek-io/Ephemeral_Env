@@ -220,7 +220,7 @@ jobs:
               cd \"\$PREVIEW_DIR\"
               ./scripts/preview/destroy.sh '$ENV_NAME'
               cd /
-              rm -rf \"\$PREVIEW_DIR\"
+              sudo rm -rf \"\$PREVIEW_DIR\"
               echo 'preview_dir_removed=true'
             else
               echo '[preview-destroy] No preview directory found; nothing to destroy.'
