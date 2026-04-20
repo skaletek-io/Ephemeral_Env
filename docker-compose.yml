@@ -6,7 +6,7 @@ services:
       context: ./frontend
       args:
         - NEXT_PUBLIC_API_URL=/api
-        - NEXT_PUBLIC_ENV_NAME=${PREVIEW_BRANCH_NAME:-local}
+        - NEXT_PUBLIC_ENV_NAME=${PREVIEW_ENV_NAME:-local}
         - NEXT_PUBLIC_COMMIT_SHA=${PREVIEW_COMMIT_SHA:-local}
     restart: unless-stopped
     ports:
@@ -28,7 +28,7 @@ services:
       - SEED_SQL_FILE=/app/backend/db/seeds/seed.sql
       - ENV=vps
     volumes:
-      - ./backend/db/seeds:/app/db/seeds:ro
+      - ./db/seeds:/app/backend/db/seeds:ro
     depends_on:
       db:
         condition: service_healthy

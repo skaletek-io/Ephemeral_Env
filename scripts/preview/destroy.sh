@@ -15,7 +15,6 @@ if [[ $# -lt 1 ]]; then
 fi
 
 ENV_NAME="$1"
-PR_NUMBER="${2:-}"
 if [[ -z "$ENV_NAME" ]]; then
   echo "env-name must not be empty" >&2
   usage
