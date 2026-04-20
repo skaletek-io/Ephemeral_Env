@@ -4,22 +4,33 @@ on:
   pull_request:
     types: [opened, synchronize, reopened, closed]
 
-  # workflow_dispatch:
-  #   inputs:
-  #     action:
-  #       description: 'Action to perform'
-  #       required: true
-  #       default: 'deploy'
-  #       type: choice
-  #       options:
-  #         - deploy
-  #         - destroy
+  workflow_dispatch:
+    inputs:
+      action:
+        description: 'Action to perform'
+        required: true
+        default: 'deploy'
+        type: choice
+        options:
+          - deploy
+          - destroy
+      env-name:
+        description: 'Optional custom environment name (alphanumeric and dashes only)'
+        required: false
+        default: ''
+        type: string
 
-  #     env-name:
-  #       description: 'Optional custom environment name (alphanumeric and dashes only)'
-  #       required: false
-  #       default: ''
-  #       type: string
+      back-end-ref:
+        description: 'Optional backend git ref (branch, tag, or commit SHA) to deploy. Defaults to the PR branch or main if not a PR.'
+        required: false
+        default: 'main'
+        type: string
+
+      front-end-ref:
+        description: 'Optional frontend git ref (branch, tag, or commit SHA) to deploy. Defaults to the PR branch or main if not a PR.'
+        required: false
+        default: 'main'
+        type: string
 
 permissions:
   contents: read
@@ -31,14 +42,14 @@ permissions:
 
 jobs:
   deploy-preview:
-    # if: github.event.inputs.action == 'deploy'
+    if: ${{ github.event.inputs.action  == 'deploy' }}
     runs-on: ubuntu-latest
-    # env:
-    #   BRANCH_NAME: ${{ github.event.inputs.env-name}}
-    #   COMMIT_SHA: ${{ github.sha }}
-    #   VPS_HOST: ${{ secrets.VPS_HOST }}
-    #   VPS_USER: ${{ secrets.VPS_USER }}
-    #   SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+    env:
+      BRANCH_NAME: ${{ github.event.inputs.env-name}}
+      COMMIT_SHA: ${{ github.sha }}
+      VPS_HOST: ${{ secrets.VPS_HOST }}
+      VPS_USER: ${{ secrets.VPS_USER }}
+      SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -48,25 +59,14 @@ jobs:
         with:
           repository: skaletek-io/simple-app-backend
           path: backend
+          ref: ${{ github.event.inputs.back-end-ref }}
 
       - name: Checkout frontend repo
         uses: actions/checkout@v6
         with:
           repository: skaletek-io/simple-app-frontend
           path: frontend
-      - name: Verify file structure     
-        run: |
-          ls -la
-
-          echo "==================== Backend repo files ===================="
-          cd backend
-          ls
-
-          echo "==================== Frontend repo files ==================="
-          cd ..
-          cd frontend
-          ls 
-
+          ref: ${{ github.event.inputs.front-end-ref }}
 
       # - name: Validate required secrets
       #   run: |
