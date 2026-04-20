@@ -47,6 +47,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           repository: skaletek-io/simple-app-backend
+          path: backend
 
       - name: Current backend repo files      
         run: |
