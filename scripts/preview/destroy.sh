@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: $0 <branch-name> [pr-number]"
+  echo "Usage: $0 <env-name>"
 }
 
 log() {
@@ -14,16 +14,16 @@ if [[ $# -lt 1 ]]; then
   exit 1
 fi
 
-BRANCH_NAME="$1"
+ENV_NAME="$1"
 PR_NUMBER="${2:-}"
-if [[ -z "$BRANCH_NAME" ]]; then
-  echo "branch-name must not be empty" >&2
+if [[ -z "$ENV_NAME" ]]; then
+  echo "env-name must not be empty" >&2
   usage
   exit 1
 fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ENV_NAME="$("$SCRIPT_DIR/env_name.sh" "$BRANCH_NAME" "$PR_NUMBER")"
+ENV_NAME="$("$SCRIPT_DIR/env_name.sh" "$ENV_NAME")"
 PROJECT_NAME="simpleapp-${ENV_NAME}"
 
 export COMPOSE_PROJECT_NAME="$PROJECT_NAME"

@@ -2,14 +2,12 @@
 set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
-  echo "Usage: $0 <branch-name> [vps-ip] [commit-sha] [pr-number]"
+  echo "Usage: $0 <env-name> [vps-ip]"
   exit 1
 fi
 
-BRANCH_NAME="$1"
+ENV_NAME="$1"
 VPS_IP="${2:-}"
-COMMIT_SHA="${3:-local}"
-PR_NUMBER="${4:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 hash_port() {
@@ -22,7 +20,7 @@ hash_port() {
   echo "$((base + (dec % span)))"
 }
 
-ENV_NAME="$("$SCRIPT_DIR/env_name.sh" "$BRANCH_NAME" "$PR_NUMBER")"
+ENV_NAME="$("$SCRIPT_DIR/env_name.sh" "$ENV_NAME")"
 
 PROJECT_NAME="simpleapp-${ENV_NAME}"
 FRONTEND_PORT="$(hash_port "${ENV_NAME}-fe" 20000 10000)"
@@ -34,8 +32,7 @@ export FRONTEND_PORT
 export BACKEND_PORT
 export DB_PORT
 export ENV_NAME
-export PREVIEW_BRANCH_NAME="$BRANCH_NAME"
-export PREVIEW_COMMIT_SHA="$COMMIT_SHA"
+export PREVIEW_ENV_NAME="$ENV_NAME"
 
 docker compose up -d --build
 
@@ -44,7 +41,6 @@ echo "project_name=$PROJECT_NAME"
 echo "frontend_port=$FRONTEND_PORT"
 echo "backend_port=$BACKEND_PORT"
 echo "db_port=$DB_PORT"
-echo "commit_sha=$COMMIT_SHA"
 if [[ -n "$VPS_IP" ]]; then
   echo "frontend_url=http://${VPS_IP}:${FRONTEND_PORT}"
   echo "backend_url=http://${VPS_IP}:${BACKEND_PORT}/api/health"
