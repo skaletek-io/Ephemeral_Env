@@ -51,6 +51,8 @@ jobs:
       - name: Current backend repo files      
         run: |
           ls -la
+          cd backend
+          ls -la
 
 
       # - name: Validate required secrets
