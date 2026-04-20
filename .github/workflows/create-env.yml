@@ -165,7 +165,8 @@ jobs:
               body: `## Preview Environment
 
             **Environment:** \`${envName}\`
-            **Branch:** \`${branch}\`
+            **Backend Branch:** \`${{ github.event.inputs.back-end-ref }}\`
+            **Frontend Branch:** \`${{ github.event.inputs.front-end-ref }}\`
             **Commit:** \`${sha}\`
             **Deployed by:** @${actor}
 
@@ -185,7 +186,7 @@ jobs:
 
             [View workflow run](${runUrl})
 
-            > This issue was created automatically on deployment. Close it when the preview environment is torn down.
+            > This issue was created automatically on deployment. It will be closed when the preview environment is destroyed.
             `,
             });
 
