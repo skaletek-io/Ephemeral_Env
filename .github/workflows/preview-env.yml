@@ -152,43 +152,34 @@ jobs:
           echo "Smoke test failed: preview not healthy."
           exit 1
 
-      - name: Comment preview links
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
-            const marker = '<!-- preview-env-status -->';
-            const body = [
-              marker,
-              `Preview environment updated for branch \`${{ steps.meta.outputs.env_name }}\`.`,
-              '',
-              `- Frontend: ${{ steps.deploy.outputs.frontend_url }}`,
-              `- Backend health: ${{ steps.deploy.outputs.backend_url }}`,
-              `- Postgres: ${{ secrets.VPS_HOST }}:${{ steps.deploy.outputs.db_port }}`,
-            ].join('\n');
+      - name:  preview links
+        # uses: actions/github-script@v7
+        run: |
+          echo "Name ${{ steps.meta.outputs.env_name }}"
+          echo "Frontend: ${{ steps.deploy.outputs.frontend_url }}"
+          echo "Backend health: ${{ steps.deploy.outputs.backend_url }}"
+          echo "Postgres: ${{ secrets.VPS_HOST }}:${{ steps.deploy.outputs.db_port }}"
 
-            await upsertPrComment({ github, context, marker, body });
+      # - name: Comment preview failure
+      #   if: failure()
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
+      #       const marker = '<!-- preview-env-status -->';
+      #       const frontendUrl = `${{ steps.deploy.outputs.frontend_url }}`.trim() || 'not available';
+      #       const backendUrl = `${{ steps.deploy.outputs.backend_url }}`.trim() || 'not available';
+      #       const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+      #       const body = [
+      #         marker,
+      #         `Preview deployment failed for branch \`${{ steps.meta.outputs.env_name }}\`.`,
+      #         '',
+      #         `- Logs: ${runUrl}`,
+      #         `- Frontend (if created): ${frontendUrl}`,
+      #         `- Backend (if created): ${backendUrl}`,
+      #       ].join('\n');
 
-      - name: Comment preview failure
-        if: failure()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
-            const marker = '<!-- preview-env-status -->';
-            const frontendUrl = `${{ steps.deploy.outputs.frontend_url }}`.trim() || 'not available';
-            const backendUrl = `${{ steps.deploy.outputs.backend_url }}`.trim() || 'not available';
-            const runUrl = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
-            const body = [
-              marker,
-              `Preview deployment failed for branch \`${{ steps.meta.outputs.env_name }}\`.`,
-              '',
-              `- Logs: ${runUrl}`,
-              `- Frontend (if created): ${frontendUrl}`,
-              `- Backend (if created): ${backendUrl}`,
-            ].join('\n');
-
-            await upsertPrComment({ github, context, marker, body });
+      #       await upsertPrComment({ github, context, marker, body });
 
   destroy-preview:
     if: ${{ github.event.inputs.action  == 'destroy' }}
@@ -246,22 +237,22 @@ jobs:
           echo "project_name=$PROJECT_NAME" >> "$GITHUB_OUTPUT"
           echo "preview_dir_removed=$PREVIEW_DIR_REMOVED" >> "$GITHUB_OUTPUT"
 
-      - name: Comment cleanup status
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
-            const marker = '<!-- preview-env-status -->';
-            const removed = `${{ steps.destroy.outputs.preview_dir_removed }}`.trim() || 'unknown';
-            const envName = `${{ steps.destroy.outputs.destroyed_env }}`.trim() || `${{ steps.meta.outputs.env_name }}`;
-            const projectName = `${{ steps.destroy.outputs.project_name }}`.trim() || `simpleapp-${envName}`;
-            const body = [
-              marker,
-              `Preview cleanup completed after PR close.`,
-              '',
-              `- Environment: \`${envName}\``,
-              `- Project: \`${projectName}\``,
-              `- Preview directory removed: \`${removed}\``,
-            ].join('\n');
+      # - name: Comment cleanup status
+      #   uses: actions/github-script@v7
+      #   with:
+      #     script: |
+      #       const { upsertPrComment } = require('./scripts/preview/upsert_pr_comment');
+      #       const marker = '<!-- preview-env-status -->';
+      #       const removed = `${{ steps.destroy.outputs.preview_dir_removed }}`.trim() || 'unknown';
+      #       const envName = `${{ steps.destroy.outputs.destroyed_env }}`.trim() || `${{ steps.meta.outputs.env_name }}`;
+      #       const projectName = `${{ steps.destroy.outputs.project_name }}`.trim() || `simpleapp-${envName}`;
+      #       const body = [
+      #         marker,
+      #         `Preview cleanup completed after PR close.`,
+      #         '',
+      #         `- Environment: \`${envName}\``,
+      #         `- Project: \`${projectName}\``,
+      #         `- Preview directory removed: \`${removed}\``,
+      #       ].join('\n');
 
-            await upsertPrComment({ github, context, marker, body });
+      #       await upsertPrComment({ github, context, marker, body });
