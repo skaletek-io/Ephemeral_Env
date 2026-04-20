@@ -129,7 +129,7 @@ jobs:
           echo "Smoke test failed: preview not healthy."
           exit 1
 
-      - name: Create preview issue
+      - name: Create or update preview issue
         uses: actions/github-script@v7
         with:
           script: |
@@ -139,9 +139,10 @@ jobs:
             const dbPort      = '${{ steps.deploy.outputs.db_port }}';
             const vpsHost     = '${{ secrets.VPS_HOST }}';
             const sha         = context.sha.slice(0, 7);
-            const branch      = '${{ github.head_ref || github.ref_name }}';
             const actor       = '${{ github.actor }}';
             const runUrl      = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            const backRef     = '${{ github.event.inputs.back-end-ref }}';
+            const frontRef    = '${{ github.event.inputs.front-end-ref }}';
 
             const title = `Preview / ${envName}`;
 
@@ -152,23 +153,27 @@ jobs:
               state: 'open',
             });
 
-            if (existing.data.find(i => i.title === title)) {
-              console.log(`Issue already exists for ${envName}, skipping.`);
-              return;
+            const existingIssue = existing.data.find(i => i.title === title);
+
+            // If issue exists, extract original branch lines from its body
+            let backendBranch  = `\`${backRef}\``;
+            let frontendBranch = `\`${frontRef}\``;
+
+            if (existingIssue) {
+              const bodyLines = existingIssue.body.split('\n');
+              const backLine  = bodyLines.find(l => l.startsWith('**Backend Branch:**'));
+              const frontLine = bodyLines.find(l => l.startsWith('**Frontend Branch:**'));
+              if (backLine)  backendBranch  = backLine.replace('**Backend Branch:**', '').trim();
+              if (frontLine) frontendBranch = frontLine.replace('**Frontend Branch:**', '').trim();
             }
 
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title,
-              labels: ['preview'],
-              body: `## Preview Environment
+            const body = `## Preview Environment
 
             **Environment:** \`${envName}\`
-            **Backend Branch:** \`${{ github.event.inputs.back-end-ref }}\`
-            **Frontend Branch:** \`${{ github.event.inputs.front-end-ref }}\`
-            **Commit:** \`${sha}\`
-            **Deployed by:** @${actor}
+            **Backend Branch:** ${backendBranch}
+            **Frontend Branch:** ${frontendBranch}
+            **Last Commit:** \`${sha}\`
+            **Last Deployed by:** @${actor}
 
             ---
 
@@ -186,7 +191,24 @@ jobs:
 
             [View workflow run](${runUrl})
 
-            > This issue was created automatically on deployment. It will be closed when the preview environment is destroyed.
-            `,
-            });
+            > This issue was created automatically on deployment. Close it when the preview environment is torn down.
+            `;
 
+            if (existingIssue) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssue.number,
+                body,
+              });
+              console.log(`Updated issue #${existingIssue.number} for ${envName}`);
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title,
+                labels: ['preview'],
+                body,
+              });
+              console.log(`Created new issue for ${envName}`);
+            }
