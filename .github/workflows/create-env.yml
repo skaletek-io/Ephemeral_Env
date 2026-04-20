@@ -1,4 +1,4 @@
-name: CREATE PREVIEW ENV
+name: CREATE or UPDATE PREVIEW ENV
 
 on:
   workflow_dispatch:
@@ -103,7 +103,7 @@ jobs:
           BACKEND_URL="${{ steps.deploy.outputs.backend_url }}"
 
           sleep 3
-          
+
           for attempt in $(seq 1 12); do
             frontend_ok=0
             backend_ok=0
@@ -143,10 +143,24 @@ jobs:
             const actor       = '${{ github.actor }}';
             const runUrl      = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
 
+            const title = `Preview / ${envName}`;
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'preview',
+              state: 'open',
+            });
+
+            if (existing.data.find(i => i.title === title)) {
+              console.log(`Issue already exists for ${envName}, skipping.`);
+              return;
+            }
+
             await github.rest.issues.create({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              title: `Preview / ${envName}`,
+              title,
               labels: ['preview'],
               body: `## Preview Environment
 
