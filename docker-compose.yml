@@ -28,7 +28,7 @@ services:
       - SEED_SQL_FILE=/app/db/seeds/seed.sql
       - ENV=vps
     volumes:
-      - /backend/db/seeds:/app/db/seeds:ro
+      - ./backend/db/seeds:/app/db/seeds:ro
     depends_on:
       db:
         condition: service_healthy
@@ -43,7 +43,7 @@ services:
       POSTGRES_PASSWORD: secret
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - /backend/db/seeds:/docker-entrypoint-initdb.d:ro
+      - ./backend/db/seeds:/docker-entrypoint-initdb.d:ro
     ports:
       - "${DB_PORT:-5432}:5432"   # exposed so you can connect with psql / TablePlus
     healthcheck:
