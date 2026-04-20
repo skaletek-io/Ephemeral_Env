@@ -1,4 +1,4 @@
-name: Preview Environments
+name: CREATE PREVIEW ENV
 
 on:
   workflow_dispatch:
