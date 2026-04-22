@@ -60,6 +60,7 @@ module.exports = async function upsertPreviewIssue({
 [View workflow run](${runUrl})
 
 > This issue was created automatically on deployment. Close it when the preview environment is torn down.
+> To delete this preview environment, comment \`destroy-env\` on this issue.
 `;
 
   if (existingIssue) {
