@@ -8,6 +8,8 @@ on:
         required: true
         default: ''
         type: string
+  issue_comment:
+    types: [created]
 permissions:
   issues: write
 
@@ -15,31 +17,81 @@ jobs:
   destroy-preview:
     runs-on: ubuntu-latest
     env:
-      ENV_NAME: ${{ github.event.inputs.env-name }}
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
     steps:
+      - name: Resolve trigger input
+        id: resolve
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const eventName = context.eventName;
+
+            if (eventName === 'workflow_dispatch') {
+              const envName = context.payload.inputs?.['env-name'] || '';
+              if (!envName) {
+                core.setFailed('Missing required workflow_dispatch input: env-name');
+                return;
+              }
+
+              core.setOutput('skip', 'false');
+              core.setOutput('raw_env_name', envName);
+              return;
+            }
+
+            if (eventName !== 'issue_comment') {
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            const issue = context.payload.issue;
+            if (!issue || issue.pull_request) {
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            const comment = (context.payload.comment?.body || '').trim().toLowerCase();
+            if (comment !== 'destroy-env') {
+              core.setOutput('skip', 'true');
+              return;
+            }
+
+            const issueBody = issue.body || '';
+            const match = issueBody.match(/^\s*Environment:\s*`?([a-z0-9-]+)`?/im);
+            if (!match) {
+              core.setFailed('Issue body is missing a valid "Environment:" value.');
+              return;
+            }
+
+            core.setOutput('skip', 'false');
+            core.setOutput('raw_env_name', match[1]);
+
       - name: Checkout
+        if: ${{ steps.resolve.outputs.skip != 'true' }}
         uses: actions/checkout@v4
 
       - name: Validate required secrets
+        if: ${{ steps.resolve.outputs.skip != 'true' }}
         run: |
           test -n "$VPS_HOST"
           test -n "$VPS_USER"
           test -n "$SSH_PRIVATE_KEY"
 
       - name: Compute environment metadata
+        if: ${{ steps.resolve.outputs.skip != 'true' }}
         id: meta
         run: |
-          ENV_NAME="$(./scripts/preview/env_name.sh "$ENV_NAME")"
+          ENV_NAME="$(./scripts/preview/env_name.sh "${{ steps.resolve.outputs.raw_env_name }}")"
           echo "env_name=$ENV_NAME" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH key
+        if: ${{ steps.resolve.outputs.skip != 'true' }}
         run: |
           ./scripts/preview/setup_ssh.sh "$VPS_HOST" "$VPS_USER" "$SSH_PRIVATE_KEY"
 
       - name: Destroy preview stack
+        if: ${{ steps.resolve.outputs.skip != 'true' }}
         id: destroy
         run: |
           DESTROY_OUT="$(ssh preview-vps "
@@ -48,7 +100,7 @@ jobs:
             if [ -d \"\$PREVIEW_DIR\" ]; then
               echo \"[preview-destroy] Found preview directory: \$PREVIEW_DIR\"
               cd \"\$PREVIEW_DIR\"
-              ./scripts/preview/destroy.sh '$ENV_NAME'
+              ./scripts/preview/destroy.sh '${{ steps.meta.outputs.env_name }}'
               cd /
               sudo rm -rf \"\$PREVIEW_DIR\"
               echo 'preview_dir_removed=true'
@@ -68,28 +120,40 @@ jobs:
           echo "preview_dir_removed=$PREVIEW_DIR_REMOVED" >> "$GITHUB_OUTPUT"
 
       - name: Close preview issue
+        if: ${{ steps.resolve.outputs.skip != 'true' }}
         uses: actions/github-script@v7
         with:
-         script: |
+          script: |
             const envName = '${{ steps.meta.outputs.env_name }}';
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
+            let issue;
 
-            const issues = await github.rest.issues.listForRepo({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                labels: 'preview',
-                state: 'open',
-            });
-
-            const issue = issues.data.find(i => i.title === `Preview / ${envName}`);
+            if (context.eventName === 'issue_comment') {
+              issue = context.payload.issue;
+            } else {
+              const issues = await github.rest.issues.listForRepo({
+                  owner,
+                  repo,
+                  labels: 'preview',
+                  state: 'open',
+              });
+              issue = issues.data.find(i => i.title === `Preview / ${envName}`);
+            }
 
             if (!issue) {
-                console.log(`No open preview issue found for ${envName}`);
-                return;
+              console.log(`No open preview issue found for ${envName}`);
+              return;
+            }
+
+            if (issue.state === 'closed') {
+              console.log(`Issue #${issue.number} is already closed`);
+              return;
             }
 
             await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
+                owner,
+                repo,
                 issue_number: issue.number,
                 state: 'closed',
             });
