@@ -27,7 +27,7 @@ permissions:
 
 concurrency:
   group: preview-env-${{ github.event.ref || github.sha }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy-preview:
