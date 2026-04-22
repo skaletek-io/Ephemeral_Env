@@ -58,14 +58,19 @@ jobs:
             }
 
             const issueBody = issue.body || '';
-            const match = issueBody.match(/^\s*Environment:\s*`?([a-z0-9-]+)`?/im);
-            if (!match) {
-              core.setFailed('Issue body is missing a valid "Environment:" value.');
+            const envFromBody =
+              issueBody.match(/^\s*(?:[-*]\s*)?(?:\*\*)?Environment(?:\*\*)?\s*:\s*`?([a-z0-9-]+)`?/im)?.[1] ||
+              issueBody.match(/`([a-z0-9-]+)`/)?.[1];
+            const envFromTitle = issue.title?.match(/^Preview\s*\/\s*([a-z0-9-]+)\b/i)?.[1];
+            const resolvedEnv = envFromBody || envFromTitle;
+
+            if (!resolvedEnv) {
+              core.setFailed('Could not find environment name in issue body or title.');
               return;
             }
 
             core.setOutput('skip', 'false');
-            core.setOutput('raw_env_name', match[1]);
+            core.setOutput('raw_env_name', resolvedEnv);
 
       - name: Checkout
         if: ${{ steps.resolve.outputs.skip != 'true' }}
