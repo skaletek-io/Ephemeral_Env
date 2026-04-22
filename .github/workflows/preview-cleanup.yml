@@ -5,10 +5,10 @@ on:
     - cron: '0 2 * * *'
   workflow_dispatch:
     inputs:
-      retention_minutes:
-        description: Delete preview environments older than this many minutes
+      retention_days:
+        description: Delete preview environments older than this many days
         required: false
-        default: '10'
+        default: '7'
 
 permissions:
   contents: read
@@ -32,25 +32,25 @@ jobs:
       - name: Validate required secrets
         run: ./scripts/preview/workflow/validate_required_secrets.sh
 
-      - name: Resolve retention minutes
+      - name: Resolve retention days
         id: config
         run: |
-          RETENTION_MINUTES="${{ github.event.inputs.retention_minutes }}"
-          if [ -z "$RETENTION_MINUTES" ]; then
-            RETENTION_MINUTES="10"
+          RETENTION_DAYS="${{ github.event.inputs.retention_days }}"
+          if [ -z "$RETENTION_DAYS" ]; then
+            RETENTION_DAYS="7"
           fi
 
-          if ! echo "$RETENTION_MINUTES" | grep -Eq '^[0-9]+$'; then
-            echo "retention_minutes must be a positive integer"
+          if ! echo "$RETENTION_DAYS" | grep -Eq '^[0-9]+$'; then
+            echo "retention_days must be a positive integer"
             exit 1
           fi
 
-          if [ "$RETENTION_MINUTES" -lt 1 ]; then
-            echo "retention_minutes must be >= 1"
+          if [ "$RETENTION_DAYS" -lt 1 ]; then
+            echo "retention_days must be >= 1"
             exit 1
           fi
 
-          echo "retention_minutes=$RETENTION_MINUTES" >> "$GITHUB_OUTPUT"
+          echo "retention_days=$RETENTION_DAYS" >> "$GITHUB_OUTPUT"
 
       - name: Setup SSH key
         run: |
@@ -59,7 +59,7 @@ jobs:
       - name: Cleanup stale previews on VPS
         id: cleanup
         run: |
-          CLEANUP_OUT="$(ssh preview-vps "bash -s -- '${{ steps.config.outputs.retention_minutes }}'" < ./scripts/preview/cleanup_stale.sh)"
+          CLEANUP_OUT="$(ssh preview-vps "bash -s -- '${{ steps.config.outputs.retention_days }}'" < ./scripts/preview/cleanup_stale.sh)"
           echo "$CLEANUP_OUT"
 
           DELETED_ENVS="$(printf '%s\n' "$CLEANUP_OUT" | awk -F= '/^deleted_env=/{print $2}')"
