@@ -12,6 +12,7 @@ on:
 
 permissions:
   contents: read
+  issues: write
 
 concurrency:
   group: preview-cleanup
@@ -56,5 +57,25 @@ jobs:
           ./scripts/preview/setup_ssh.sh "$VPS_HOST" "$VPS_USER" "$SSH_PRIVATE_KEY"
 
       - name: Cleanup stale previews on VPS
+        id: cleanup
         run: |
-          ssh preview-vps "bash -s -- '${{ steps.config.outputs.retention_minutes }}'" < ./scripts/preview/cleanup_stale.sh
+          CLEANUP_OUT="$(ssh preview-vps "bash -s -- '${{ steps.config.outputs.retention_minutes }}'" < ./scripts/preview/cleanup_stale.sh)"
+          echo "$CLEANUP_OUT"
+
+          DELETED_ENVS="$(printf '%s\n' "$CLEANUP_OUT" | awk -F= '/^deleted_env=/{print $2}')"
+          {
+            echo "deleted_envs<<EOF"
+            printf '%s\n' "$DELETED_ENVS"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Close related preview issues
+        if: ${{ steps.cleanup.outputs.deleted_envs != '' }}
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await require(`${process.env.GITHUB_WORKSPACE}/scripts/preview/workflow/close_stale_preview_issues.js`)({
+              github,
+              context,
+              deletedEnvsRaw: `${{ steps.cleanup.outputs.deleted_envs }}`,
+            });
