@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-RETENTION_DAYS="${1:-7}"
+RETENTION_MINUTES="${1:-10}"
 PREVIEW_BASE_DIR="${2:-$HOME/simple-app/previews}"
 
-if ! echo "$RETENTION_DAYS" | grep -Eq '^[0-9]+$'; then
-  echo "RETENTION_DAYS must be a positive integer, got: '$RETENTION_DAYS'" >&2
+if ! echo "$RETENTION_MINUTES" | grep -Eq '^[0-9]+$'; then
+  echo "RETENTION_MINUTES must be a positive integer, got: '$RETENTION_MINUTES'" >&2
   exit 1
 fi
 
-if [[ "$RETENTION_DAYS" -lt 1 ]]; then
-  echo "RETENTION_DAYS must be >= 1, got: '$RETENTION_DAYS'" >&2
+if [[ "$RETENTION_MINUTES" -lt 1 ]]; then
+  echo "RETENTION_MINUTES must be >= 1, got: '$RETENTION_MINUTES'" >&2
   exit 1
 fi
 
@@ -19,24 +19,18 @@ if [[ ! -d "$PREVIEW_BASE_DIR" ]]; then
   exit 0
 fi
 
-echo "Cleaning previews older than $RETENTION_DAYS days in '$PREVIEW_BASE_DIR'..."
+echo "Cleaning previews older than $RETENTION_MINUTES minutes in '$PREVIEW_BASE_DIR'..."
 
 now_epoch="$(date +%s)"
-cutoff_seconds="$((RETENTION_DAYS * 86400))"
+cutoff_seconds="$((RETENTION_MINUTES * 60))"
 deleted_count=0
 kept_count=0
-skipped_count=0
 
 shopt -s nullglob
 for dir in "$PREVIEW_BASE_DIR"/*; do
   [[ -d "$dir" ]] || continue
 
   env_name="$(basename "$dir")"
-  if [[ ! "$env_name" =~ ^pr-[0-9]+- ]]; then
-    echo "Skipping non-preview directory: $dir"
-    skipped_count="$((skipped_count + 1))"
-    continue
-  fi
 
   mtime_epoch="$(stat -c %Y "$dir")"
   age_seconds="$((now_epoch - mtime_epoch))"
@@ -58,7 +52,8 @@ for dir in "$PREVIEW_BASE_DIR"/*; do
   fi
 
   rm -rf "$dir"
+  echo "deleted_env=$env_name"
   deleted_count="$((deleted_count + 1))"
 done
 
-echo "Cleanup summary: deleted=$deleted_count kept=$kept_count skipped=$skipped_count"
+echo "Cleanup summary: deleted=$deleted_count kept=$kept_count"
