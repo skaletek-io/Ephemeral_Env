@@ -103,27 +103,33 @@ To change DB credentials, update both DB and backend settings in `docker-compose
 
 ---
 
-## Preview Environments (PR-Based)
+## Preview Environments (On-Demand)
 
-Workflow:
+Workflows:
 
-- `.github/workflows/preview-env.yml`
+- `.github/workflows/create-env.yml`
+- `.github/workflows/destroy-env.yml`
 
 Behavior:
 
-- On PR `opened`, `reopened`, and `synchronize`: deploy/update preview.
-- On PR `closed`: destroy preview.
-- Only runs when PR head repo is the same repository (not forks).
+- No automatic preview creation per PR.
+- Preview environments are created/updated on demand via manual workflow dispatch.
+- User provides `env-name`, `back-end-ref` (backend branch/tag/SHA), and `front-end-ref` (frontend branch/tag/SHA).
 
-### Isolation Model
+Source sync model:
 
-Environment names come from branch + PR number using `scripts/preview/env_name.sh`:
+- Infra repo checks out this infra repository.
+- Infra repo also checks out `skaletek-io/simple-app-backend` at `back-end-ref`.
+- Infra repo also checks out `skaletek-io/simple-app-frontend` at `front-end-ref`.
+- Then syncs the combined workspace to VPS at `~/simple-app/previews/<env_name>`.
 
-- Format: `pr-<PR_NUMBER>-<branch-slug>`
-- Max length: `40`
-- Example: `pr-42-feature-login-page`
+Environment naming:
 
-This env name is used for:
+- Env name is sanitized by `scripts/preview/env_name.sh`.
+- Max length: `40`.
+- Example input: `rule-scheduler-v3`.
+
+Used for:
 
 - Remote directory: `~/simple-app/previews/<env_name>`
 - Compose project: `simpleapp-<env_name>`
@@ -139,43 +145,27 @@ Deterministic hash-based ranges:
 
 ### Deploy Flow
 
-1. Checkout repository in GitHub Actions.
-2. Compute env name from branch + PR number.
+1. Checkout infra repo and target backend/frontend refs.
+2. Compute/sanitize env name.
 3. Setup SSH from secret key.
 4. `rsync` repo to `~/simple-app/previews/<env_name>`.
 5. Run `scripts/preview/deploy.sh`.
 6. Parse output URLs/ports.
-7. Run smoke tests with retries (up to 12 attempts):
-`curl` frontend URL and backend `/api/health`.
-8. Upsert one PR status comment (no comment spam).
+7. Run smoke tests with retries (up to 12 attempts): `curl` frontend URL and backend `/api/health`.
+8. Create or update one preview issue titled `Preview / <env_name>`.
 
 ### Destroy Flow
 
-1. Compute same env name.
+1. Resolve env name from manual input `env-name`, or from issue comment trigger (`destroy-env`) using issue `Environment:` line (with title fallback).
 2. SSH to VPS and enter preview directory.
 3. Run `scripts/preview/destroy.sh`.
 4. Remove preview directory.
-5. Upsert PR status comment with cleanup message.
+5. Close related preview issue.
 
-### PR Status Comment Behavior
+Destroy from issue:
 
-The workflow maintains one rolling status comment using marker:
-
-- `<!-- preview-env-status -->`
-
-Includes:
-
-- Run number
-- Frontend URL
-- Backend health URL
-- DB port
-- Commit SHA
-
-If deploy/smoke test fails, the same comment is updated with:
-
-- Failure message
-- Link to workflow run logs
-- Last known URLs (if available)
+- Comment `destroy-env` on the preview issue.
+- Workflow extracts environment value and runs cleanup automatically.
 
 ---
 
@@ -259,9 +249,11 @@ Behavior:
 - Runs daily at `02:00 UTC`
 - Also supports manual dispatch with `retention_days`
 - Default retention: `7` days
-- Cleans only directories matching `^pr-[0-9]+-`
+- Cleans preview directories older than retention threshold
 - For each stale preview, runs `docker compose down -v --remove-orphans --rmi local`
 - Then removes the preview directory
+- Echoes deleted environments as `deleted_env=<env_name>`
+- Closes matching open issues titled `Preview / <env_name>`
 
 Manual run:
 
@@ -275,12 +267,23 @@ Manual run:
 
 Located in `scripts/preview/`:
 
-- `env_name.sh`: deterministic env name from branch + PR number
+- `env_name.sh`: sanitizes environment name
 - `setup_ssh.sh`: normalizes SSH key secret, builds SSH config, verifies connection
 - `deploy.sh`: computes ports, exports preview env vars, runs `docker compose up -d --build`
 - `destroy.sh`: tears down preview stack and local images for that compose project
 - `cleanup_stale.sh`: removes old preview stacks/directories
-- `upsert_pr_comment.js`: helper for updating one PR status comment
+
+Workflow helpers in `scripts/preview/workflow/`:
+
+- `validate_required_secrets.sh`
+- `sync_repo_to_vps.sh`
+- `deploy_preview_stack.sh`
+- `smoke_test_preview.sh`
+- `resolve_destroy_input.js`
+- `destroy_preview_stack.sh`
+- `close_preview_issue.js`
+- `upsert_preview_issue.js`
+- `close_stale_preview_issues.js`
 
 ---
 
