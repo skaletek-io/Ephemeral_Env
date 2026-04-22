@@ -23,17 +23,8 @@ module.exports = async function upsertPreviewIssue({
 
   const existingIssue = existing.data.find((i) => i.title === title);
 
-  // If issue exists, preserve original branch lines from its body.
-  let backendBranch = `\`${backRef}\``;
-  let frontendBranch = `\`${frontRef}\``;
-
-  if (existingIssue) {
-    const bodyLines = (existingIssue.body || "").split("\n");
-    const backLine = bodyLines.find((l) => l.startsWith("**Backend Branch:**"));
-    const frontLine = bodyLines.find((l) => l.startsWith("**Frontend Branch:**"));
-    if (backLine) backendBranch = backLine.replace("**Backend Branch:**", "").trim();
-    if (frontLine) frontendBranch = frontLine.replace("**Frontend Branch:**", "").trim();
-  }
+  const backendBranch = `\`${backRef || "main"}\``;
+  const frontendBranch = `\`${frontRef || "main"}\``;
 
   const body = `## Preview Environment
 
