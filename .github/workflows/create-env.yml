@@ -56,10 +56,7 @@ jobs:
           ref: ${{ github.event.inputs.front-end-ref }}
 
       - name: Validate required secrets
-        run: |
-          test -n "$VPS_HOST"
-          test -n "$VPS_USER"
-          test -n "$SSH_PRIVATE_KEY"
+        run: ./scripts/preview/workflow/validate_required_secrets.sh
 
       - name: Compute environment metadata
         id: meta
@@ -72,143 +69,29 @@ jobs:
           ./scripts/preview/setup_ssh.sh "$VPS_HOST" "$VPS_USER" "$SSH_PRIVATE_KEY"
 
       - name: Sync repo to VPS
-        run: |
-          ssh preview-vps "mkdir -p ~/simple-app/previews/${{ steps.meta.outputs.env_name }}"
-          rsync -az --delete \
-            -e "ssh -F $HOME/.ssh/config" \
-            --exclude '.git' \
-            --exclude '.github' \
-            --exclude 'frontend/node_modules' \
-            ./ "preview-vps:~/simple-app/previews/${{ steps.meta.outputs.env_name }}/"
+        run: ./scripts/preview/workflow/sync_repo_to_vps.sh "${{ steps.meta.outputs.env_name }}"
 
       - name: Deploy preview stack
         id: deploy
-        run: |
-          DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${{ steps.meta.outputs.env_name }} && ./scripts/preview/deploy.sh '$ENV_NAME' '$VPS_HOST'")"
-          echo "$DEPLOY_OUT"
-
-          FRONTEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^frontend_url=/{print $2}')"
-          BACKEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^backend_url=/{print $2}')"
-          DB_PORT="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^db_port=/{print $2}')"
-          DEPLOY_SHA="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^commit_sha=/{print $2}')"
-
-          echo "frontend_url=$FRONTEND_URL" >> "$GITHUB_OUTPUT"
-          echo "backend_url=$BACKEND_URL" >> "$GITHUB_OUTPUT"
-          echo "db_port=$DB_PORT" >> "$GITHUB_OUTPUT"
-          echo "commit_sha=$DEPLOY_SHA" >> "$GITHUB_OUTPUT"
+        run: ./scripts/preview/workflow/deploy_preview_stack.sh "${{ steps.meta.outputs.env_name }}" "$VPS_HOST" "$GITHUB_OUTPUT"
 
       - name: Smoke test preview
-        run: |
-          FRONTEND_URL="${{ steps.deploy.outputs.frontend_url }}"
-          BACKEND_URL="${{ steps.deploy.outputs.backend_url }}"
-
-          sleep 3
-
-          for attempt in $(seq 1 12); do
-            frontend_ok=0
-            backend_ok=0
-
-            if curl -fsS "$FRONTEND_URL" > /dev/null; then
-              frontend_ok=1
-            fi
-
-            health_body="$(curl -fsS "$BACKEND_URL" || true)"
-            if printf '%s' "$health_body" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"(ok|healthy)"'; then
-              backend_ok=1
-            fi
-
-            if [[ "$frontend_ok" -eq 1 && "$backend_ok" -eq 1 ]]; then
-              echo "Smoke test passed on attempt $attempt."
-              exit 0
-            fi
-
-            echo "Attempt $attempt failed; retrying in 5s..."
-            sleep 5
-          done
-
-          echo "Smoke test failed: preview not healthy."
-          exit 1
+        run: ./scripts/preview/workflow/smoke_test_preview.sh "${{ steps.deploy.outputs.frontend_url }}" "${{ steps.deploy.outputs.backend_url }}"
 
       - name: Create or update preview issue
         uses: actions/github-script@v7
         with:
           script: |
-            const envName     = '${{ steps.meta.outputs.env_name }}';
-            const frontendUrl = '${{ steps.deploy.outputs.frontend_url }}';
-            const backendUrl  = '${{ steps.deploy.outputs.backend_url }}';
-            const dbPort      = '${{ steps.deploy.outputs.db_port }}';
-            const vpsHost     = '${{ secrets.VPS_HOST }}';
-            const sha         = context.sha.slice(0, 7);
-            const actor       = '${{ github.actor }}';
-            const runUrl      = `${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
-            const backRef     = '${{ github.event.inputs.back-end-ref }}';
-            const frontRef    = '${{ github.event.inputs.front-end-ref }}';
-
-            const title = `Preview / ${envName}`;
-
-            const existing = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'preview',
-              state: 'open',
+            await require(`${process.env.GITHUB_WORKSPACE}/scripts/preview/workflow/upsert_preview_issue.js`)({
+              github,
+              context,
+              envName: '${{ steps.meta.outputs.env_name }}',
+              frontendUrl: '${{ steps.deploy.outputs.frontend_url }}',
+              backendUrl: '${{ steps.deploy.outputs.backend_url }}',
+              dbPort: '${{ steps.deploy.outputs.db_port }}',
+              vpsHost: '${{ secrets.VPS_HOST }}',
+              actor: '${{ github.actor }}',
+              runUrl: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}',
+              backRef: '${{ github.event.inputs.back-end-ref }}',
+              frontRef: '${{ github.event.inputs.front-end-ref }}',
             });
-
-            const existingIssue = existing.data.find(i => i.title === title);
-
-            // If issue exists, extract original branch lines from its body
-            let backendBranch  = `\`${backRef}\``;
-            let frontendBranch = `\`${frontRef}\``;
-
-            if (existingIssue) {
-              const bodyLines = existingIssue.body.split('\n');
-              const backLine  = bodyLines.find(l => l.startsWith('**Backend Branch:**'));
-              const frontLine = bodyLines.find(l => l.startsWith('**Frontend Branch:**'));
-              if (backLine)  backendBranch  = backLine.replace('**Backend Branch:**', '').trim();
-              if (frontLine) frontendBranch = frontLine.replace('**Frontend Branch:**', '').trim();
-            }
-
-            const body = `## Preview Environment
-
-            **Environment:** \`${envName}\`
-            **Backend Branch:** ${backendBranch}
-            **Frontend Branch:** ${frontendBranch}
-            **Last Commit:** \`${sha}\`
-            **Last Deployed by:** @${actor}
-
-            ---
-
-            ## Services
-
-            | Service    | Address                        |
-            |------------|--------------------------------|
-            | Frontend   | ${frontendUrl}                 |
-            | Backend    | ${backendUrl}                  |
-            | Postgres   | \`${vpsHost}:${dbPort}\`       |
-
-            ---
-
-            ## Details
-
-            [View workflow run](${runUrl})
-
-            > This issue was created automatically on deployment. Close it when the preview environment is torn down.
-            `;
-
-            if (existingIssue) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: existingIssue.number,
-                body,
-              });
-              console.log(`Updated issue #${existingIssue.number} for ${envName}`);
-            } else {
-              await github.rest.issues.create({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                title,
-                labels: ['preview'],
-                body,
-              });
-              console.log(`Created new issue for ${envName}`);
-            }
