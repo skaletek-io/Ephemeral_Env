@@ -4,3 +4,4 @@ frontend/.next/
 backend/bin/
 *.exe
 .DS_Store
+.codex

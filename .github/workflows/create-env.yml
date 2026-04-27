@@ -50,8 +50,8 @@ jobs:
           token: ${{ secrets.BACKEND_REPO_PAT }}
           
           sparse-checkout: 
-            /skalemon-api
-            /docker
+            skalemon-api/**
+            docker/**
       - name: Checkout frontend repo
         uses: actions/checkout@v6
         with:
