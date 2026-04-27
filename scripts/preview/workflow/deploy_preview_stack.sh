@@ -1,16 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [[ $# -lt 3 ]]; then
-  echo "Usage: $0 <env-name> <vps-host> <github-output-file>" >&2
+if [[ $# -lt 5 ]]; then
+  echo "Usage: $0 <env-name> <preview-base-domain> <cpu-limit> <memory-limit> <github-output-file>" >&2
   exit 1
 fi
 
 ENV_NAME="$1"
-VPS_HOST="$2"
-GITHUB_OUTPUT_FILE="$3"
+PREVIEW_BASE_DOMAIN="$2"
+CPU_LIMIT="$3"
+MEMORY_LIMIT="$4"
+GITHUB_OUTPUT_FILE="$5"
 
-DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${ENV_NAME} && ./scripts/preview/deploy.sh '${ENV_NAME}' '${VPS_HOST}'")"
+DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${ENV_NAME} && ./scripts/preview/deploy.sh '${ENV_NAME}' '${PREVIEW_BASE_DOMAIN}' '${CPU_LIMIT}' '${MEMORY_LIMIT}'")"
 echo "$DEPLOY_OUT"
 
 FRONTEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^frontend_url=/{print $2}' | tail -n1)"
@@ -24,4 +26,3 @@ DEPLOY_SHA="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^commit_sha=/{print $2}' |
   echo "db_port=$DB_PORT"
   echo "commit_sha=$DEPLOY_SHA"
 } >> "$GITHUB_OUTPUT_FILE"
-

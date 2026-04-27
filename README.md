@@ -7,7 +7,7 @@ Three-tier app for VPS testing:
 - Database: Postgres
 - Orchestration: Docker Compose
 
-No domain or reverse proxy required. Everything is exposed via host ports.
+Preview environments are published through Traefik with wildcard Route53 DNS.
 
 ---
 
@@ -18,6 +18,9 @@ No domain or reverse proxy required. Everything is exposed via host ports.
 - Backend serves REST API on port `8080` (or preview-computed backend port).
 - Backend connects to Postgres and seeds initial data from `db/seeds/seed.sql`.
 - Postgres is exposed on host for direct connections.
+- Traefik routes `https://<env>-web.<preview-base-domain>` to frontend.
+- Traefik routes `https://<env>-api.<preview-base-domain>` to backend.
+- Traefik also routes `https://<env>-web.<preview-base-domain>/api/*` to backend for frontend compatibility.
 
 ---
 
@@ -96,6 +99,8 @@ Important variables:
 - `FRONTEND_PORT` (default `3000`)
 - `BACKEND_PORT` (default `8080`)
 - `DB_PORT` (default `5432`)
+- `CPU_LIMIT` (default `0.50`)
+- `MEMORY_LIMIT` (default `512m`)
 - `DATABASE_URL` for backend
 - `POSTGRES_PASSWORD` for DB
 
@@ -114,7 +119,7 @@ Behavior:
 
 - No automatic preview creation per PR.
 - Preview environments are created/updated on demand via manual workflow dispatch.
-- User provides `env-name`, `back-end-ref` (backend branch/tag/SHA), and `front-end-ref` (frontend branch/tag/SHA).
+- User provides `env-name`, `back-end-ref` (backend branch/tag/SHA), `front-end-ref` (frontend branch/tag/SHA), `cpu-limit`, and `memory-limit`.
 
 Source sync model:
 
@@ -149,9 +154,9 @@ Deterministic hash-based ranges:
 2. Compute/sanitize env name.
 3. Setup SSH from secret key.
 4. `rsync` repo to `~/simple-app/previews/<env_name>`.
-5. Run `scripts/preview/deploy.sh`.
+5. Run `scripts/preview/deploy.sh` with preview base domain and auto-join `traefik-public` network.
 6. Parse output URLs/ports.
-7. Run smoke tests with retries (up to 12 attempts): `curl` frontend URL and backend `/api/health`.
+7. Run smoke tests with retries (up to 24 attempts): `curl` frontend URL and backend `/api/health`.
 8. Create or update one preview issue titled `Preview / <env_name>`.
 
 ### Destroy Flow
@@ -180,6 +185,22 @@ Required:
 - `VPS_HOST`: VPS IP/hostname
 - `VPS_USER`: SSH user on VPS
 - `VPS_SSH_KEY`: private key used by GitHub Actions
+- `PREVIEW_BASE_DOMAIN`: base domain for previews (example: `preview.example.com`)
+
+---
+
+## Route53 + Traefik Setup
+
+1. Create Route53 record `*.preview.example.com` (A record) pointing to your VPS public IP.
+2. Open inbound `80/tcp` and `443/tcp` on your VPS firewall/security group.
+3. Start Traefik once on the VPS with [traefik/docker-compose.yml](traefik/docker-compose.yml).
+4. Copy [traefik/.env.example](traefik/.env.example) to `traefik/.env` and set AWS + email values.
+5. Ensure GitHub secret `PREVIEW_BASE_DOMAIN` is set to the same base domain (for example `preview.example.com`).
+
+After that, each preview env URL is:
+
+- Frontend: `https://<env-name>-web.<preview-base-domain>`
+- Backend health: `https://<env-name>-api.<preview-base-domain>/api/health`
 
 ---
 
@@ -269,7 +290,7 @@ Located in `scripts/preview/`:
 
 - `env_name.sh`: sanitizes environment name
 - `setup_ssh.sh`: normalizes SSH key secret, builds SSH config, verifies connection
-- `deploy.sh`: computes ports, exports preview env vars, runs `docker compose up -d --build`
+- `deploy.sh`: computes deterministic ports, exports preview/Traefik env vars, ensures Traefik network exists, runs `docker compose up -d --build`, and emits domain URLs
 - `destroy.sh`: tears down preview stack and local images for that compose project
 - `cleanup_stale.sh`: removes old preview stacks/directories
 

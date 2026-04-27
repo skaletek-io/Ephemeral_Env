@@ -9,9 +9,9 @@ fi
 FRONTEND_URL="$1"
 BACKEND_URL="$2"
 
-sleep 3
+sleep 5
 
-for attempt in $(seq 1 12); do
+for attempt in $(seq 1 24); do
   frontend_ok=0
   backend_ok=0
 
@@ -35,4 +35,3 @@ done
 
 echo "Smoke test failed: preview not healthy."
 exit 1
-

@@ -21,6 +21,18 @@ on:
         default: 'main'
         type: string
 
+      cpu-limit:
+        description: 'CPU limit per preview container (example: 0.50, 1.00, 2.00)'
+        required: false
+        default: '0.50'
+        type: string
+
+      memory-limit:
+        description: 'Memory limit per preview container (example: 512m, 1g, 2g)'
+        required: false
+        default: '512m'
+        type: string
+
 permissions:
   contents: read
   issues: write
@@ -37,6 +49,8 @@ jobs:
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+      PREVIEW_BASE_DOMAIN: ${{ secrets.PREVIEW_BASE_DOMAIN }}
+      REQUIRE_PREVIEW_DOMAIN: '1'
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -73,7 +87,7 @@ jobs:
 
       - name: Deploy preview stack
         id: deploy
-        run: ./scripts/preview/workflow/deploy_preview_stack.sh "${{ steps.meta.outputs.env_name }}" "$VPS_HOST" "$GITHUB_OUTPUT"
+        run: ./scripts/preview/workflow/deploy_preview_stack.sh "${{ steps.meta.outputs.env_name }}" "$PREVIEW_BASE_DOMAIN" "${{ github.event.inputs.cpu-limit }}" "${{ github.event.inputs.memory-limit }}" "$GITHUB_OUTPUT"
 
       - name: Smoke test preview
         run: ./scripts/preview/workflow/smoke_test_preview.sh "${{ steps.deploy.outputs.frontend_url }}" "${{ steps.deploy.outputs.backend_url }}"

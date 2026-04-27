@@ -9,17 +9,32 @@ services:
         - NEXT_PUBLIC_ENV_NAME=${PREVIEW_ENV_NAME:-local}
         - NEXT_PUBLIC_COMMIT_SHA=${PREVIEW_COMMIT_SHA:-local}
     restart: unless-stopped
+    cpus: "${CPU_LIMIT:-0.50}"
+    mem_limit: "${MEMORY_LIMIT:-512m}"
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
       - backend
     environment:
       - NODE_ENV=production
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_PUBLIC_NETWORK:-traefik-public}
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-web.rule=Host(`${PREVIEW_ENV_NAME:-local}-web.${PREVIEW_BASE_DOMAIN:-preview.localhost}`)
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-web.entrypoints=websecure
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-web.tls.certresolver=le
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-web.priority=10
+      - traefik.http.services.${PREVIEW_ENV_NAME:-local}-web.loadbalancer.server.port=3000
+    networks:
+      - default
+      - traefik-public
 
   # ─── Backend (Go) ────────────────────────────────────────────────────────────
   backend:
     build: ./backend
     restart: unless-stopped
+    cpus: "${CPU_LIMIT:-0.50}"
+    mem_limit: "${MEMORY_LIMIT:-512m}"
     ports:
       - "${BACKEND_PORT:-8080}:8080"
     environment:
@@ -32,11 +47,28 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=${TRAEFIK_PUBLIC_NETWORK:-traefik-public}
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-api.rule=Host(`${PREVIEW_ENV_NAME:-local}-api.${PREVIEW_BASE_DOMAIN:-preview.localhost}`)
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-api.entrypoints=websecure
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-api.tls.certresolver=le
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-api.priority=100
+      - traefik.http.services.${PREVIEW_ENV_NAME:-local}-api.loadbalancer.server.port=8080
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-web-api.rule=Host(`${PREVIEW_ENV_NAME:-local}-web.${PREVIEW_BASE_DOMAIN:-preview.localhost}`) && PathPrefix(`/api`)
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-web-api.entrypoints=websecure
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-web-api.tls.certresolver=le
+      - traefik.http.routers.${PREVIEW_ENV_NAME:-local}-web-api.priority=200
+    networks:
+      - default
+      - traefik-public
 
   # ─── Database (Postgres) ─────────────────────────────────────────────────────
   db:
     image: postgres:16-alpine
     restart: unless-stopped
+    cpus: "${CPU_LIMIT:-0.50}"
+    mem_limit: "${MEMORY_LIMIT:-512m}"
     environment:
       POSTGRES_DB: appdb
       POSTGRES_USER: app
@@ -54,3 +86,7 @@ services:
 
 volumes:
   pgdata:
+
+networks:
+  traefik-public:
+    name: ${TRAEFIK_PUBLIC_NETWORK:-traefik-public}
