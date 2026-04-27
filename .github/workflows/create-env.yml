@@ -44,10 +44,14 @@ jobs:
       - name: Checkout backend repo
         uses: actions/checkout@v6
         with:
-          repository: skaletek-io/simple-app-backend
-          path: backend
+          repository: skaletek-io/skalemon-api
+          path: ./
           ref: ${{ github.event.inputs.back-end-ref }}
-
+          token: ${{ secrets.BACKEND_REPO_PAT }}
+          
+          sparse-checkout: 
+            /skalemon-api
+            /docker
       - name: Checkout frontend repo
         uses: actions/checkout@v6
         with:
