@@ -1,7 +1,7 @@
 services:
   db:
     build:
-      context: ./backend/skalemon-api/docker/postgres
+      context: ./backend/docker/postgres
       dockerfile: Dockerfile
     container_name: skalemon-db
     restart: unless-stopped
