@@ -48,10 +48,6 @@ jobs:
           path: ./
           ref: ${{ github.event.inputs.back-end-ref }}
           token: ${{ secrets.BACKEND_REPO_PAT }}
-          
-          sparse-checkout: 
-            skalemon-api/**
-            docker/**
       - name: Checkout frontend repo
         uses: actions/checkout@v6
         with:
