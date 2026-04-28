@@ -75,6 +75,9 @@ jobs:
         id: deploy
         run: ./scripts/preview/workflow/deploy_preview_stack.sh "${{ steps.meta.outputs.env_name }}" "$VPS_HOST" "$GITHUB_OUTPUT"
 
+      - name: Seed preview data
+        run: ./scripts/preview/workflow/seed_preview_stack.sh "${{ steps.meta.outputs.env_name }}"
+
       - name: Smoke test preview
         run: ./scripts/preview/workflow/smoke_test_preview.sh "${{ steps.deploy.outputs.frontend_url }}" "${{ steps.deploy.outputs.backend_url }}"
 

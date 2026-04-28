@@ -1,4 +1,4 @@
-.PHONY: help up down logs ps build rebuild shell-db shell-backend fresh
+.PHONY: help up down logs ps build rebuild shell-db shell-backend fresh logs-seed
 
 help:
 	@echo ""
@@ -11,6 +11,8 @@ help:
 	@echo "  make logs        Tail all logs"
 	@echo "  make logs-be     Tail backend logs only"
 	@echo "  make logs-fe     Tail frontend logs only"
+	@echo "  make logs-db     Tail database logs"
+	@echo "  make logs-seed   Show seed container logs"
 	@echo "  make ps          Show status"
 	@echo "  make shell-db    Open psql in db container"
 	@echo "  make shell-be    Open shell in backend container"
@@ -54,11 +56,14 @@ logs-fe:
 logs-db:
 	docker compose logs -f db
 
+logs-seed:
+	docker compose logs seed
+
 ps:
 	docker compose ps
 
 shell-db:
-	docker compose exec db psql -U app -d appdb
+	docker compose exec db psql -U postgres -d skalemon
 
 shell-be:
 	docker compose exec backend sh

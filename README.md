@@ -16,7 +16,7 @@ No domain or reverse proxy required. Everything is exposed via host ports.
 - Frontend serves UI on port `3000` (or preview-computed frontend port).
 - Frontend proxies `/api/*` to backend.
 - Backend serves REST API on port `8080` (or preview-computed backend port).
-- Backend connects to Postgres and seeds initial data from `db/seeds/seed.sql`.
+- Backend connects to Postgres, runs migrations, and then a one-shot seed container applies `backend/docker/postgres/seed/dev_seed.sql`.
 - Postgres is exposed on host for direct connections.
 
 ---
@@ -48,6 +48,7 @@ make logs      # tail all logs
 make logs-be   # backend logs
 make logs-fe   # frontend logs
 make logs-db   # database logs
+make logs-seed # seed container logs
 make ps        # docker compose status
 make shell-db  # open psql shell
 make shell-be  # open backend container shell
@@ -73,14 +74,26 @@ Health returns:
 
 ## Data Seeding
 
-Seed SQL is applied at startup from:
+The development seed file is:
 
-- `db/seeds/seed.sql`
+- `backend/docker/postgres/seed/dev_seed.sql`
+
+Seeding happens after the app starts, not during Postgres init:
+
+- `db` starts first
+- `api` starts with `RUN_MIGRATIONS=true` and creates the schema
+- `seed` waits for the migrated tables and then runs `backend/docker/postgres/seed/dev_seed.sql`
 
 Reset and re-seed:
 
 ```bash
 make fresh
+```
+
+Inspect the one-shot seeding step:
+
+```bash
+make logs-seed
 ```
 
 ---
