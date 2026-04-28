@@ -2,7 +2,7 @@
 set -euo pipefail
 
 RETENTION_DAYS="${1:-7}"
-PREVIEW_BASE_DIR="${2:-$HOME/simple-app/previews}"
+PREVIEW_BASE_DIR="${2:-$HOME/skaletek-app-v2}"
 
 if ! echo "$RETENTION_DAYS" | grep -Eq '^[0-9]+$'; then
   echo "RETENTION_DAYS must be a positive integer, got: '$RETENTION_DAYS'" >&2

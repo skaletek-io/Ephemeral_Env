@@ -8,11 +8,11 @@ fi
 
 ENV_NAME="$1"
 
-ssh preview-vps "mkdir -p ~/simple-app/previews/${ENV_NAME}"
+ssh preview-vps "mkdir -p ~/skaletek-app-v2/${ENV_NAME}"
 rsync -az --delete \
   -e "ssh -F $HOME/.ssh/config" \
   --exclude '.git' \
   --exclude '.github' \
   --exclude 'frontend/node_modules' \
-  ./ "preview-vps:~/simple-app/previews/${ENV_NAME}/"
+  ./ "preview-vps:~/skaletek-app-v2/${ENV_NAME}/"
 

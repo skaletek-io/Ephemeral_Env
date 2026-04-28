@@ -134,7 +134,7 @@ Source sync model:
 - Infra repo checks out this infra repository.
 - Infra repo also checks out `skaletek-io/simple-app-backend` at `back-end-ref`.
 - Infra repo also checks out `skaletek-io/simple-app-frontend` at `front-end-ref`.
-- Then syncs the combined workspace to VPS at `~/simple-app/previews/<env_name>`.
+- Then syncs the combined workspace to VPS at `~/skaletek-app-v2/<env_name>`.
 
 Environment naming:
 
@@ -144,7 +144,7 @@ Environment naming:
 
 Used for:
 
-- Remote directory: `~/simple-app/previews/<env_name>`
+- Remote directory: `~/skaletek-app-v2/<env_name>`
 - Compose project: `skalemon-<env_name>`
 - Port derivation seed (deterministic per preview)
 
@@ -161,7 +161,7 @@ Deterministic hash-based ranges:
 1. Checkout infra repo and target backend/frontend refs.
 2. Compute/sanitize env name.
 3. Setup SSH from secret key.
-4. `rsync` repo to `~/simple-app/previews/<env_name>`.
+4. `rsync` repo to `~/skaletek-app-v2/<env_name>`.
 5. Run `scripts/preview/deploy.sh`.
 6. Parse output URLs/ports.
 7. Run smoke tests with retries (up to 12 attempts): `curl` frontend URL and backend `/api/health`.
@@ -238,7 +238,7 @@ If using root:
 - Docker + Docker Compose plugin installed
 - `rsync` installed
 - SSH user allowed to run Docker commands
-- writable preview base directory: `~/simple-app/previews`
+- writable preview base directory: `~/skaletek-app-v2`
 
 Optional but recommended:
 

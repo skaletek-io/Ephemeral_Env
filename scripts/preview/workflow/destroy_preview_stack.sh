@@ -11,7 +11,7 @@ GITHUB_OUTPUT_FILE="$2"
 
 DESTROY_OUT="$(ssh preview-vps "
   set -e
-  PREVIEW_DIR=\"\$HOME/simple-app/previews/${ENV_NAME}\"
+  PREVIEW_DIR=\"\$HOME/skaletek-app-v2/${ENV_NAME}\"
   if [ -d \"\$PREVIEW_DIR\" ]; then
     echo \"[preview-destroy] Found preview directory: \$PREVIEW_DIR\"
     cd \"\$PREVIEW_DIR\"

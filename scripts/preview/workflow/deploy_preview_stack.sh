@@ -10,7 +10,7 @@ ENV_NAME="$1"
 VPS_HOST="$2"
 GITHUB_OUTPUT_FILE="$3"
 
-DEPLOY_OUT="$(ssh preview-vps "cd ~/simple-app/previews/${ENV_NAME} && ./scripts/preview/deploy.sh '${ENV_NAME}' '${VPS_HOST}'")"
+DEPLOY_OUT="$(ssh preview-vps "cd ~/skaletek-app-v2/${ENV_NAME} && ./scripts/preview/deploy.sh '${ENV_NAME}' '${VPS_HOST}'")"
 echo "$DEPLOY_OUT"
 
 FRONTEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^frontend_url=/{print $2}' | tail -n1)"
