@@ -34,7 +34,7 @@ export DB_PORT
 export ENV_NAME
 export PREVIEW_ENV_NAME="$ENV_NAME"
 
-docker compose up -d --build
+docker compose -f compose-compose.yml up -d --build
 
 echo "env_name=$ENV_NAME"
 echo "project_name=$PROJECT_NAME"
