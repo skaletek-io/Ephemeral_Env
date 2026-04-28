@@ -35,10 +35,10 @@ export ENV_NAME
 export PREVIEW_ENV_NAME="$ENV_NAME"
 
 echo "step: make deps"
-(cd .. && cd .. && cd && ls && backend/skalemon-api && make deps)
+(cd backend/skalemon-api && make deps)
 
 echo "step: make gen"
-(cd ../../backend/skalemon-api && make gen)
+(cd backend/skalemon-api && make gen)
 
 echo "step: docker compose up"
 docker compose -f docker-compose.yml up -d --build
