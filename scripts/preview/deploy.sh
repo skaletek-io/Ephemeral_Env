@@ -33,10 +33,16 @@ export BACKEND_PORT
 export DB_PORT
 export ENV_NAME
 export PREVIEW_ENV_NAME="$ENV_NAME"
-export PATH=$PATH:/usr/local/go/bin
+export PATH=$PATH:/usr/local/go/bin # Go is installed in vps but not in the PATH when running via SSH — SSH non-interactive sessions don't source ~/.bashrc
+export PATH=$PATH:/usr/local/go/bin:~/go/bin # Also add ~/go/bin to PATH for any Go tools installed via 'go install'
 
 echo "step: make deps"
 (cd backend/skalemon-api && make deps)
+
+if ! command -v oapi-codegen &> /dev/null; then
+    echo "Installing oapi-codegen..."
+    go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+fi
 
 echo "step: make gen"
 (cd backend/skalemon-api && make gen)
