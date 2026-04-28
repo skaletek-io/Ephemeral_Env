@@ -33,6 +33,7 @@ export BACKEND_PORT
 export DB_PORT
 export ENV_NAME
 export PREVIEW_ENV_NAME="$ENV_NAME"
+export PATH=$PATH:/usr/local/go/bin
 
 echo "step: make deps"
 (cd backend/skalemon-api && make deps)
