@@ -23,7 +23,7 @@ fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ENV_NAME="$("$SCRIPT_DIR/env_name.sh" "$ENV_NAME")"
-PROJECT_NAME="simpleapp-${ENV_NAME}"
+PROJECT_NAME="skalemon-${ENV_NAME}"
 
 export COMPOSE_PROJECT_NAME="$PROJECT_NAME"
 

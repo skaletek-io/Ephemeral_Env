@@ -8,4 +8,4 @@ fi
 
 ENV_NAME="$1"
 
-ssh preview-vps "cd ~/simple-app/previews/${ENV_NAME} && COMPOSE_PROJECT_NAME='simpleapp-${ENV_NAME}' docker compose -f docker-compose.yml run --rm --no-deps seed"
+ssh preview-vps "cd ~/simple-app/previews/${ENV_NAME} && COMPOSE_PROJECT_NAME='skalemon-${ENV_NAME}' docker compose -f docker-compose.yml run --rm --no-deps seed"

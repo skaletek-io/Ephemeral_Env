@@ -22,7 +22,7 @@ hash_port() {
 
 ENV_NAME="$("$SCRIPT_DIR/env_name.sh" "$ENV_NAME")"
 
-PROJECT_NAME="simpleapp-${ENV_NAME}"
+PROJECT_NAME="skalemon-${ENV_NAME}"
 FRONTEND_PORT="$(hash_port "${ENV_NAME}-fe" 20000 10000)"
 BACKEND_PORT="$(hash_port "${ENV_NAME}-be" 30000 10000)"
 DB_PORT="$(hash_port "${ENV_NAME}-db" 40000 10000)"

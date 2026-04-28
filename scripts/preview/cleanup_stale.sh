@@ -45,7 +45,7 @@ for dir in "$PREVIEW_BASE_DIR"/*; do
   if [[ -f "$dir/docker-compose.yml" || -f "$dir/docker-compose.yaml" ]]; then
     (
       cd "$dir"
-      COMPOSE_PROJECT_NAME="simpleapp-${env_name}" docker compose down -v --remove-orphans --rmi local || true
+      COMPOSE_PROJECT_NAME="skalemon-${env_name}" docker compose down -v --remove-orphans --rmi local || true
     )
   else
     echo "No docker compose file found in '$dir'; removing directory only."

@@ -145,7 +145,7 @@ Environment naming:
 Used for:
 
 - Remote directory: `~/simple-app/previews/<env_name>`
-- Compose project: `simpleapp-<env_name>`
+- Compose project: `skalemon-<env_name>`
 - Port derivation seed (deterministic per preview)
 
 ### Preview Port Ranges
