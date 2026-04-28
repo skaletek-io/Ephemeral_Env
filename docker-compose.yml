@@ -1,7 +1,6 @@
 services:
   db:
     image: postgres:18-alpine
-    container_name: skalemon-db
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -24,7 +23,6 @@ services:
     build:
       context: ./backend/skalemon-api
       dockerfile: Dockerfile
-    container_name: skalemon-api
     restart: unless-stopped
     depends_on:
       db:
@@ -52,7 +50,6 @@ services:
 
   seed:
     image: postgres:18-alpine
-    container_name: skalemon-seed
     restart: "no"
     depends_on:
       db:
