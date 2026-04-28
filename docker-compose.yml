@@ -8,7 +8,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: skalemon
     ports:
-      - "5432:5432"
+      - "${DB_PORT:-5432}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d skalemon"]
       interval: 60s
@@ -42,7 +42,7 @@ services:
       DB_SSLMODE: disable
       RUN_MIGRATIONS: "true"
     ports:
-      - "8080:8080"
+      - "${BACKEND_PORT:-8080}:8080"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/v1/health || exit 1"]
       interval: 60s
