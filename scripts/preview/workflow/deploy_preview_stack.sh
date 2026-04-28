@@ -15,13 +15,14 @@ echo "$DEPLOY_OUT"
 
 FRONTEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^frontend_url=/{print $2}' | tail -n1)"
 BACKEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^backend_url=/{print $2}' | tail -n1)"
+BACKEND_HEALTH_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^backend_health_url=/{print $2}' | tail -n1)"
 DB_PORT="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^db_port=/{print $2}' | tail -n1)"
 DEPLOY_SHA="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^commit_sha=/{print $2}' | tail -n1)"
 
 {
   echo "frontend_url=$FRONTEND_URL"
   echo "backend_url=$BACKEND_URL"
+  echo "backend_health_url=$BACKEND_HEALTH_URL"
   echo "db_port=$DB_PORT"
   echo "commit_sha=$DEPLOY_SHA"
 } >> "$GITHUB_OUTPUT_FILE"
-

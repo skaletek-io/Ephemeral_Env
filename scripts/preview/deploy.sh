@@ -44,4 +44,5 @@ echo "db_port=$DB_PORT"
 if [[ -n "$VPS_IP" ]]; then
   echo "frontend_url=http://${VPS_IP}:${FRONTEND_PORT}"
   echo "backend_url=http://${VPS_IP}:${BACKEND_PORT}/docs"
+  echo "backend_health_url=http://${VPS_IP}:${BACKEND_PORT}/api/v1/health"
 fi
