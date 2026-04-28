@@ -34,6 +34,13 @@ export DB_PORT
 export ENV_NAME
 export PREVIEW_ENV_NAME="$ENV_NAME"
 
+echo "step: make deps"
+make deps
+
+echo "step: make gen"
+make gen
+
+echo "step: docker compose up"
 docker compose -f docker-compose.yml up -d --build
 
 echo "env_name=$ENV_NAME"
