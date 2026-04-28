@@ -79,7 +79,7 @@ jobs:
         run: ./scripts/preview/workflow/seed_preview_stack.sh "${{ steps.meta.outputs.env_name }}"
 
       - name: Smoke test preview
-        run: ./scripts/preview/workflow/smoke_test_preview.sh "${{ steps.deploy.outputs.frontend_url }}" "${{ steps.deploy.outputs.backend_url }}"
+        run: ./scripts/preview/workflow/smoke_test_preview.sh "${{ steps.deploy.outputs.backend_url }}"
 
       - name: Create or update preview issue
         uses: actions/github-script@v7
