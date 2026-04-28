@@ -35,7 +35,7 @@ export ENV_NAME
 export PREVIEW_ENV_NAME="$ENV_NAME"
 
 echo "step: make deps"
-(cd ../../backend/skalemon-api && make deps)
+(cd .. && cd .. && cd backend/skalemon-api && make deps)
 
 echo "step: make gen"
 (cd ../../backend/skalemon-api && make gen)
