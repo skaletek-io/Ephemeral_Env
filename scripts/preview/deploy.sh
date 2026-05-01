@@ -36,6 +36,12 @@ export PREVIEW_ENV_NAME="$ENV_NAME"
 export PATH=$PATH:/usr/local/go/bin # Go is installed in vps but not in the PATH when running via SSH — SSH non-interactive sessions don't source ~/.bashrc
 export PATH=$PATH:/usr/local/go/bin:~/go/bin # Also add ~/go/bin to PATH for any Go tools installed via 'go install'
 
+if [[ -n "${VPS_IP:-}" ]]; then
+  export PREVIEW_API_URL="http://${VPS_IP}:${BACKEND_PORT}"
+else
+  export PREVIEW_API_URL="http://127.0.0.1:${BACKEND_PORT}"
+fi
+
 echo "step: make deps"
 (cd backend/skalemon-api && make deps)
 

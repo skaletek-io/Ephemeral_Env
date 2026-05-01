@@ -37,6 +37,7 @@ jobs:
       VPS_HOST: ${{ secrets.VPS_HOST }}
       VPS_USER: ${{ secrets.VPS_USER }}
       SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
+      STORE_ENCRYPTION_KEY: ${{ secrets.STORE_ENCRYPTION_KEY }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6
@@ -47,13 +48,15 @@ jobs:
           repository: skaletek-io/skalemon-api
           path: backend
           ref: ${{ github.event.inputs.back-end-ref }}
-          token: ${{ secrets.BACKEND_REPO_PAT }}
+          token: ${{ secrets.TOKEN_PAT }}
+
       - name: Checkout frontend repo
         uses: actions/checkout@v6
         with:
-          repository: skaletek-io/simple-app-frontend
+          repository: skaletek-io/compliance-fe-app
           path: frontend
           ref: ${{ github.event.inputs.front-end-ref }}
+          token: ${{ secrets.TOKEN_PAT }}
             
       - name: Validate required secrets
         run: ./scripts/preview/workflow/validate_required_secrets.sh
@@ -79,7 +82,7 @@ jobs:
         run: ./scripts/preview/workflow/seed_preview_stack.sh "${{ steps.meta.outputs.env_name }}"
 
       - name: Smoke test preview
-        run: ./scripts/preview/workflow/smoke_test_preview.sh "${{ steps.deploy.outputs.backend_health_url }}"
+        run: ./scripts/preview/workflow/smoke_test_preview.sh "${{ steps.deploy.outputs.backend_health_url }}" "${{ steps.deploy.outputs.frontend_url }}"
 
       - name: Create or update preview issue
         uses: actions/github-script@v7
