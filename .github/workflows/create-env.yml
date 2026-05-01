@@ -38,6 +38,7 @@ jobs:
       VPS_USER: ${{ secrets.VPS_USER }}
       SSH_PRIVATE_KEY: ${{ secrets.VPS_SSH_KEY }}
       STORE_ENCRYPTION_KEY: ${{ secrets.STORE_ENCRYPTION_KEY }}
+      PREVIEW_DOMAIN: ${{ secrets.PREVIEW_DOMAIN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v6

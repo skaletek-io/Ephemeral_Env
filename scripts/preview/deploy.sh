@@ -36,7 +36,9 @@ export PREVIEW_ENV_NAME="$ENV_NAME"
 export PATH=$PATH:/usr/local/go/bin # Go is installed in vps but not in the PATH when running via SSH — SSH non-interactive sessions don't source ~/.bashrc
 export PATH=$PATH:/usr/local/go/bin:~/go/bin # Also add ~/go/bin to PATH for any Go tools installed via 'go install'
 
-if [[ -n "${VPS_IP:-}" ]]; then
+if [[ -n "${PREVIEW_DOMAIN:-}" ]]; then
+  export PREVIEW_API_URL="https://${ENV_NAME}.${PREVIEW_DOMAIN}/api/v1"
+elif [[ -n "${VPS_IP:-}" ]]; then
   export PREVIEW_API_URL="http://${VPS_IP}:${BACKEND_PORT}/api/v1"
 else
   export PREVIEW_API_URL="http://127.0.0.1:${BACKEND_PORT}/api/v1"
@@ -56,12 +58,20 @@ echo "step: make gen"
 echo "step: docker compose up"
 docker compose -f docker-compose.yml up -d --build
 
+if [[ -n "${PREVIEW_DOMAIN:-}" ]]; then
+  "$SCRIPT_DIR/caddy_snippet.sh" write "$ENV_NAME" "$FRONTEND_PORT" "$BACKEND_PORT" "$PREVIEW_DOMAIN"
+fi
+
 echo "env_name=$ENV_NAME"
 echo "project_name=$PROJECT_NAME"
 echo "frontend_port=$FRONTEND_PORT"
 echo "backend_port=$BACKEND_PORT"
 echo "db_port=$DB_PORT"
-if [[ -n "$VPS_IP" ]]; then
+if [[ -n "${PREVIEW_DOMAIN:-}" ]]; then
+  echo "frontend_url=https://${ENV_NAME}.${PREVIEW_DOMAIN}"
+  echo "backend_url=https://${ENV_NAME}.${PREVIEW_DOMAIN}/docs"
+  echo "backend_health_url=https://${ENV_NAME}.${PREVIEW_DOMAIN}/api/v1/health"
+elif [[ -n "${VPS_IP:-}" ]]; then
   echo "frontend_url=http://${VPS_IP}:${FRONTEND_PORT}"
   echo "backend_url=http://${VPS_IP}:${BACKEND_PORT}/docs"
   echo "backend_health_url=http://${VPS_IP}:${BACKEND_PORT}/api/v1/health"

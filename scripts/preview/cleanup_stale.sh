@@ -42,6 +42,10 @@ for dir in "$PREVIEW_BASE_DIR"/*; do
 
   echo "Removing stale preview: $env_name"
 
+  if [[ -x "$dir/scripts/preview/caddy_snippet.sh" ]]; then
+    "$dir/scripts/preview/caddy_snippet.sh" remove "$env_name" || true
+  fi
+
   if [[ -f "$dir/docker-compose.yml" || -f "$dir/docker-compose.yaml" ]]; then
     (
       cd "$dir"

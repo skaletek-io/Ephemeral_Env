@@ -1,0 +1,6 @@
+# Status endpoint so `import …/*.caddy` always matches at least one file before any preview exists.
+:80 {
+	handle /caddy-status {
+		respond "ok" 200
+	}
+}

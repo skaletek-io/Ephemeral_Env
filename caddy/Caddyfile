@@ -1,0 +1,10 @@
+{
+	email {$ACME_EMAIL}
+	acme_dns route53 {
+		access_key_id {$AWS_ACCESS_KEY_ID}
+		secret_access_key {$AWS_SECRET_ACCESS_KEY}
+		hosted_zone_id {$AWS_HOSTED_ZONE_ID}
+	}
+}
+
+import /etc/caddy/snippets/*.caddy
