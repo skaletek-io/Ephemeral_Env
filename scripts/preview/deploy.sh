@@ -37,9 +37,9 @@ export PATH=$PATH:/usr/local/go/bin # Go is installed in vps but not in the PATH
 export PATH=$PATH:/usr/local/go/bin:~/go/bin # Also add ~/go/bin to PATH for any Go tools installed via 'go install'
 
 if [[ -n "${VPS_IP:-}" ]]; then
-  export PREVIEW_API_URL="http://${VPS_IP}:${BACKEND_PORT}"
+  export PREVIEW_API_URL="http://${VPS_IP}:${BACKEND_PORT}/api/v1"
 else
-  export PREVIEW_API_URL="http://127.0.0.1:${BACKEND_PORT}"
+  export PREVIEW_API_URL="http://127.0.0.1:${BACKEND_PORT}/api/v1"
 fi
 
 echo "step: make deps"
@@ -54,7 +54,7 @@ echo "step: make gen"
 (cd backend/skalemon-api && make gen)
 
 echo "step: docker compose up"
-docker compose -f docker-compose.yml up -d --build
+docker compose -f docker-compose.yml up --build
 
 echo "env_name=$ENV_NAME"
 echo "project_name=$PROJECT_NAME"
