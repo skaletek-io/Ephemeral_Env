@@ -14,5 +14,6 @@ rsync -az --delete \
   --exclude '.git' \
   --exclude '.github' \
   --exclude 'frontend/node_modules' \
+  --exclude 'traefik/.env' \
   ./ "preview-vps:~/skaletek-app-v2/${ENV_NAME}/"
 

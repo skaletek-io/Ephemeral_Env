@@ -11,7 +11,8 @@ VPS_HOST="$2"
 GITHUB_OUTPUT_FILE="$3"
 
 REMOTE_STORE="$(printf 'export STORE_ENCRYPTION_KEY=%q' "${STORE_ENCRYPTION_KEY:-}")"
-DEPLOY_OUT="$(ssh preview-vps "cd ~/skaletek-app-v2/${ENV_NAME} && ${REMOTE_STORE} && ./scripts/preview/deploy.sh '${ENV_NAME}' '${VPS_HOST}'")"
+REMOTE_DOMAIN="$(printf 'export PREVIEW_DOMAIN=%q' "${PREVIEW_DOMAIN:-}")"
+DEPLOY_OUT="$(ssh preview-vps "cd ~/skaletek-app-v2/${ENV_NAME} && ${REMOTE_STORE} && ${REMOTE_DOMAIN} && ./scripts/preview/deploy.sh '${ENV_NAME}' '${VPS_HOST}'")"
 echo "$DEPLOY_OUT"
 
 FRONTEND_URL="$(printf '%s\n' "$DEPLOY_OUT" | awk -F= '/^frontend_url=/{print $2}' | tail -n1)"

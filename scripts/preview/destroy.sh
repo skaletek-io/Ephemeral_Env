@@ -27,6 +27,8 @@ PROJECT_NAME="skalemon-${ENV_NAME}"
 
 export COMPOSE_PROJECT_NAME="$PROJECT_NAME"
 
+"$SCRIPT_DIR/traefik_dynamic_config.sh" remove "$ENV_NAME" || true
+
 log "Destroying preview resources for project '$PROJECT_NAME'..."
 docker compose down -v --remove-orphans --rmi local || true
 
