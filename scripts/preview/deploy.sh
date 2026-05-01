@@ -54,7 +54,7 @@ echo "step: make gen"
 (cd backend/skalemon-api && make gen)
 
 echo "step: docker compose up"
-docker compose -f docker-compose.yml up --build
+docker compose -f docker-compose.yml up -d --build
 
 echo "env_name=$ENV_NAME"
 echo "project_name=$PROJECT_NAME"
